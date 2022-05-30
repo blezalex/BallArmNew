@@ -23,143 +23,16 @@ class StepperOut {
 
 public:
 	StepperOut(int idx) : idx_(idx) {
-		if (idx >= kMOTOR_CNT) while(1);
-		next_iter_completes_step[idx] = false;
+		if (idx >= 3) while(1);
 		set(0);
 	}
 
 	void set(float v_steps_sec) {
-		if (fabsf(v_steps_sec) < kMinStepsSec) {
-			// Requested speed is too slow. Also protects from division by zero.
-			iterations_between_steps[idx_] = std::numeric_limits<uint32_t>::max();
-			current_interation[idx_] = 0;
-			return;
-		}
-
-		uint32_t delay_iters = abs(kSAMPLING_FREQ_HZ / v_steps_sec);
-		if (delay_iters < 1) {
-			// Max speed reached
-			delay_iters = 1;
-		}
-
-		iterations_between_steps[idx_] = delay_iters;
-
-		const bool requested_fwd = v_steps_sec > 0;
-		if (forward[idx_] != requested_fwd) {
-			forward[idx_] = requested_fwd;
-			GPIO_WriteBit(kDirPorts[idx_], kDirPins[idx_], (BitAction)requested_fwd);
-			current_interation[idx_] = 0;
-		}
+		comm_can_set_current(idx_ + 1, v_steps_sec);
 	}
 
-
-	static constexpr int32_t kSAMPLING_FREQ_HZ = 100000l;
-	static constexpr float kMinStepsSec = (float)kSAMPLING_FREQ_HZ / std::numeric_limits<uint32_t>::max();
-	static constexpr int32_t kMOTOR_CNT = 3;
-
-
-	static uint32_t iterations_between_steps[kMOTOR_CNT];
-	static bool forward[kMOTOR_CNT];
-	static bool next_iter_completes_step[kMOTOR_CNT];
-	static uint32_t current_interation[kMOTOR_CNT];
-
-	static constexpr GPIO_TypeDef* kDirPorts[kMOTOR_CNT] = { GPIOA, GPIOB, GPIOB };
-	static constexpr uint16_t kDirPins[kMOTOR_CNT] = { GPIO_Pin_11, GPIO_Pin_7, GPIO_Pin_9 };
-
-	static constexpr GPIO_TypeDef* kStepPorts[kMOTOR_CNT] = { GPIOA, GPIOB, GPIOB };
-	static constexpr uint16_t kStepPins[kMOTOR_CNT] = { GPIO_Pin_8, GPIO_Pin_6, GPIO_Pin_8 };
-
-	static void UpdateStates() {
-		for (size_t motor_idx = 0; motor_idx < kMOTOR_CNT;  motor_idx++) {
-			uint32_t& current_iter = current_interation[motor_idx];
-			current_iter++;
-
-			if (next_iter_completes_step[motor_idx]) {
-				GPIO_SetBits(kStepPorts[motor_idx], kStepPins[motor_idx]);
-				next_iter_completes_step[motor_idx] = false;
-				continue;
-			}
-
-			uint32_t interval = iterations_between_steps[motor_idx];
-//			if (interval == std::numeric_limits<uint32_t>::max()) {
-//				// stopped motor;
-//				continue;
-//			}
-
-			if (current_iter >= interval) {
-				// reset step pin
-				GPIO_ResetBits(kStepPorts[motor_idx], kStepPins[motor_idx]);
-
-			  // reset counter
-				current_iter = 0;
-				next_iter_completes_step[motor_idx] = true;
-			}
-		}
-	}
-
-	static void InitAll() {
-		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-		GPIO_InitTypeDef  GPIO_InitStructure;
-		GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_8 | GPIO_Pin_11;
-		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-		GPIO_Init(GPIOA, &GPIO_InitStructure);
-
-		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-		GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_6 | GPIO_Pin_7 | GPIO_Pin_8 | GPIO_Pin_9;
-		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-		GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-
-		// TIMER
-		RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
-
-		TIM_TimeBaseInitTypeDef TimerBaseInit;
-		TIM_TimeBaseStructInit(&TimerBaseInit);
-		TIM_TimeBaseStructInit(&TimerBaseInit);
-		TimerBaseInit.TIM_Prescaler =  SystemCoreClock / 1000000 - 1; // 1us tick ;
-		TimerBaseInit.TIM_Period = 10; // 100kHz
-		TimerBaseInit.TIM_CounterMode = TIM_CounterMode_Up;
-		TIM_TimeBaseInit(TIM4,&TimerBaseInit);
-		TIM_Cmd(TIM4, ENABLE);
-
-    NVIC_InitTypeDef nvicStructure;
-    nvicStructure.NVIC_IRQChannel = TIM4_IRQn;
-    nvicStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    nvicStructure.NVIC_IRQChannelSubPriority = 0;
-    nvicStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&nvicStructure);
-
-    TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
-	}
-
-private:
 	int idx_;
 };
-
-
-extern "C" void TIM4_IRQHandler()
-{
-	if (TIM_GetITStatus(TIM4, TIM_IT_Update) != RESET)
-	{
-			TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
-
-	}
-	StepperOut::UpdateStates();
-}
-
-uint32_t StepperOut::iterations_between_steps[kMOTOR_CNT];
-uint32_t StepperOut::current_interation[kMOTOR_CNT];
-bool StepperOut::forward[kMOTOR_CNT];
-bool StepperOut::next_iter_completes_step[kMOTOR_CNT];
-
-constexpr GPIO_TypeDef* StepperOut::kDirPorts[kMOTOR_CNT];
-constexpr uint16_t StepperOut::kDirPins[kMOTOR_CNT];
-
-constexpr GPIO_TypeDef* StepperOut::kStepPorts[kMOTOR_CNT];
-constexpr uint16_t StepperOut::kStepPins[kMOTOR_CNT];
-
 
 class ConstrainedOut {
 public:
@@ -198,7 +71,7 @@ private:
 
 class BoardController  : public UpdateListener  {
 public:
-	BoardController(Config* settings, IMU& imu, StepperOut* motor_out1,  StepperOut* motor_out2, StepperOut* motor_out3, GenericOut& status_led,
+	BoardController(Config* settings, IMU& imu, GenericOut& status_led,
 			GenericOut& beeper, Guard** guards, int guards_count, GenericOut& green_led, VescComm* vesc)
 	  : settings_(settings),
 		imu_(imu),
@@ -206,9 +79,9 @@ public:
 		pitch_balancer_(settings_, &(settings_->pitch_pid)),
 		roll_balancer_(settings_, &(settings_->roll_pid)),
 		yaw_pid_controler_(&(settings_->yaw_pid)),
-		motor1_(motor_out1, &settings->balance_settings),
-		motor2_(motor_out2, &settings->balance_settings),
-		motor3_(motor_out3, &settings->balance_settings),
+		motor1_(&out[0], &settings->balance_settings),
+		motor2_(&out[1], &settings->balance_settings),
+		motor3_(&out[2], &settings->balance_settings),
 		status_led_(status_led),
 		beeper_(beeper),
 		green_led_(green_led),
@@ -276,17 +149,20 @@ public:
 			fwd *= settings_->balance_settings.usart_control_scaling;
 			right *= settings_->balance_settings.usart_control_scaling;
 
-		  if (current_state != State::Starting) {
-		  	fwd += fwd_lpf_.getVal();
-		  	right += right_lpf_.getVal();
 
-		  	fwd_lpf_.compute(fwd);
-		  	right_lpf_.compute(right);
-		  }
+			#ifdef SPEED_CTRL
+				if (current_state != State::Starting) {
+					fwd += fwd_lpf_.getVal();
+					right += right_lpf_.getVal();
+
+					fwd_lpf_.compute(fwd);
+					right_lpf_.compute(right);
+				}
+			#endif 
 
 			float speed1 = yaw + right;
-			float speed2 = yaw + cos(radians(120)) * right - sin(radians(120)) * fwd;
-		  float speed3 = yaw + cos(radians(120)) * right + sin(radians(120)) * fwd;
+			float speed2 = yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
+		  float speed3 = yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
 
 			motor1_.set(speed1);
 			motor2_.set(speed2);
@@ -308,6 +184,7 @@ public:
 	BalanceController roll_balancer_;
 	PidController yaw_pid_controler_;
 
+	StepperOut out[3] = {0, 1, 2};
 	ConstrainedOut motor1_;
 	ConstrainedOut motor2_;
 	ConstrainedOut motor3_;

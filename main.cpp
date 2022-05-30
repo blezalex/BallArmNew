@@ -8,6 +8,8 @@
 #include "stm_lib/inc/stm32f10x_iwdg.h"
 #include "stm_lib/inc/stm32f10x_rcc.h"
 #include "stm_lib/inc/stm32f10x_adc.h"
+#include "stm_lib/inc/stm32f10x_can.h"
+
 
 #include <math.h>
 #include <stdio.h>
@@ -32,7 +34,6 @@
 #include "lpf.hpp"
 #include "pid.hpp"
 #include "stateTracker.hpp"
-#include "stm32f10x_can.h"
 
 
 extern "C" void EXTI15_10_IRQHandler(void) {
@@ -95,13 +96,6 @@ static uint8_t debug[200];
 
 static Communicator comms;
 
-void applyCalibrationConfig(const Config &cfg, Mpu *accGyro) {
-  int16_t acc_offsets[3] = {(int16_t)cfg.callibration.acc_x,
-                            (int16_t)cfg.callibration.acc_y,
-                            (int16_t)cfg.callibration.acc_z};
-  accGyro->applyAccZeroOffsets(acc_offsets);
-}
-
 void initRx() {
 	/* GPIO configuration */
 	GPIO_InitTypeDef  GPIO_InitStructure;
@@ -129,8 +123,6 @@ void initRx() {
 
 uint8_t debug_stream_type = 0;
 
-#include "stm32f10x_gpio.h"
-#include "stm32f10x_rcc.h"
 
 typedef enum
 {
@@ -139,208 +131,68 @@ typedef enum
 
 GenericOut* status_led_ext;
 
-void buffer2_append_int32(uint8_t* buffer, int32_t number, int32_t *index) {
-	buffer[(*index)++] = number >> 24;
-	buffer[(*index)++] = number >> 16;
-	buffer[(*index)++] = number >> 8;
-	buffer[(*index)++] = number;
-}
 
-// CAN commands
-typedef enum {
-	CAN_PACKET_SET_DUTY = 0,
-	CAN_PACKET_SET_CURRENT,
-	CAN_PACKET_SET_CURRENT_BRAKE,
-	CAN_PACKET_SET_RPM,
-	CAN_PACKET_SET_POS,
-	CAN_PACKET_FILL_RX_BUFFER,
-	CAN_PACKET_FILL_RX_BUFFER_LONG,
-	CAN_PACKET_PROCESS_RX_BUFFER,
-	CAN_PACKET_PROCESS_SHORT_BUFFER,
-	CAN_PACKET_STATUS,
-	CAN_PACKET_SET_CURRENT_REL,
-	CAN_PACKET_SET_CURRENT_BRAKE_REL,
-	CAN_PACKET_SET_CURRENT_HANDBRAKE,
-	CAN_PACKET_SET_CURRENT_HANDBRAKE_REL,
-	CAN_PACKET_STATUS_2,
-	CAN_PACKET_STATUS_3,
-	CAN_PACKET_STATUS_4,
-	CAN_PACKET_PING,
-	CAN_PACKET_PONG,
-	CAN_PACKET_DETECT_APPLY_ALL_FOC,
-	CAN_PACKET_DETECT_APPLY_ALL_FOC_RES,
-	CAN_PACKET_CONF_CURRENT_LIMITS,
-	CAN_PACKET_CONF_STORE_CURRENT_LIMITS,
-	CAN_PACKET_CONF_CURRENT_LIMITS_IN,
-	CAN_PACKET_CONF_STORE_CURRENT_LIMITS_IN,
-	CAN_PACKET_CONF_FOC_ERPMS,
-	CAN_PACKET_CONF_STORE_FOC_ERPMS,
-	CAN_PACKET_STATUS_5,
-	CAN_PACKET_POLL_TS5700N8501_STATUS,
-	CAN_PACKET_CONF_BATTERY_CUT,
-	CAN_PACKET_CONF_STORE_BATTERY_CUT,
-	CAN_PACKET_SHUTDOWN,
-	CAN_PACKET_IO_BOARD_ADC_1_TO_4,
-	CAN_PACKET_IO_BOARD_ADC_5_TO_8,
-	CAN_PACKET_IO_BOARD_ADC_9_TO_12,
-	CAN_PACKET_IO_BOARD_DIGITAL_IN,
-	CAN_PACKET_IO_BOARD_SET_OUTPUT_DIGITAL,
-	CAN_PACKET_IO_BOARD_SET_OUTPUT_PWM,
-	CAN_PACKET_BMS_V_TOT,
-	CAN_PACKET_BMS_I,
-	CAN_PACKET_BMS_AH_WH,
-	CAN_PACKET_BMS_V_CELL,
-	CAN_PACKET_BMS_BAL,
-	CAN_PACKET_BMS_TEMPS,
-	CAN_PACKET_BMS_HUM,
-	CAN_PACKET_BMS_SOC_SOH_TEMP_STAT,
-	CAN_PACKET_PSW_STAT,
-	CAN_PACKET_PSW_SWITCH,
-	CAN_PACKET_BMS_HW_DATA_1,
-	CAN_PACKET_BMS_HW_DATA_2,
-	CAN_PACKET_BMS_HW_DATA_3,
-	CAN_PACKET_BMS_HW_DATA_4,
-	CAN_PACKET_BMS_HW_DATA_5,
-	CAN_PACKET_BMS_AH_WH_CHG_TOTAL,
-	CAN_PACKET_BMS_AH_WH_DIS_TOTAL,
-	CAN_PACKET_UPDATE_PID_POS_OFFSET,
-	CAN_PACKET_POLL_ROTOR_POS,
-	CAN_PACKET_BMS_BOOT,
-	CAN_PACKET_MAKE_ENUM_32_BITS = 0xFFFFFFFF,
-} CAN_PACKET_ID;
+void initCAN() {
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 
+  GPIO_InitTypeDef GPIO_InitStructure;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-uint8_t comm_can_transmit_eid_replace(uint32_t id, const uint8_t *data, uint8_t len, bool replace) {
-	CanTxMsg TxMessage;
-  TxMessage.ExtId = id;
-  TxMessage.RTR = CAN_RTR_DATA;
-  TxMessage.IDE = CAN_ID_EXT;
-  TxMessage.DLC = len;
-  memcpy(TxMessage.Data, data, len);
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-  return CAN_Transmit(CAN1, &TxMessage);
-}
+  GPIO_PinRemapConfig(GPIO_Remap1_CAN1 , ENABLE);
 
-uint8_t comm_can_set_current(uint8_t controller_id, float current) {
-	int32_t send_index = 0;
-	uint8_t buffer[4];
-	buffer2_append_int32(buffer, (int32_t)(current * 1000.0), &send_index);
-	return comm_can_transmit_eid_replace(controller_id |
-			((uint32_t)CAN_PACKET_SET_CURRENT << 8), buffer, send_index, true);
+  CAN_InitTypeDef CAN_InitStructure;
+  CAN_FilterInitTypeDef CAN_FilterInitStructure;
+
+  /* CAN register init */
+  CAN_DeInit(CAN1);
+  CAN_StructInit(&CAN_InitStructure);
+
+  /* CAN cell init */
+  CAN_InitStructure.CAN_TTCM = DISABLE;
+  CAN_InitStructure.CAN_ABOM = DISABLE;
+  CAN_InitStructure.CAN_AWUM = DISABLE;
+  CAN_InitStructure.CAN_NART = DISABLE;
+  CAN_InitStructure.CAN_RFLM = DISABLE;
+  CAN_InitStructure.CAN_TXFP = DISABLE;
+  CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;
+
+  CAN_InitStructure.CAN_SJW = CAN_SJW_1tq;
+  CAN_InitStructure.CAN_BS1 = CAN_BS1_3tq;
+  CAN_InitStructure.CAN_BS2 = CAN_BS2_5tq;
+
+  CAN_InitStructure.CAN_Prescaler = 4*2; //Prescaler for 500 kBps
+  //CAN_InitStructure.CAN_Prescaler = 4*1; //Prescaler for 1 MBps
+
+  CAN_Init(CAN1, &CAN_InitStructure);
+  while(CAN_Init(CAN1, &CAN_InitStructure) != CAN_InitStatus_Success);
+
+  /* CAN filter init */
+  CAN_FilterInitStructure.CAN_FilterNumber = 0;
+  CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdMask;
+  CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_32bit;
+  CAN_FilterInitStructure.CAN_FilterIdHigh = 0x0000;
+  CAN_FilterInitStructure.CAN_FilterIdLow = 0x0000;
+  CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0x0000;
+  CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0x0000;
+  CAN_FilterInitStructure.CAN_FilterFIFOAssignment = 0;
+  CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
+  CAN_FilterInit(&CAN_FilterInitStructure);
 }
 
 
 
-TestStatus CAN_Polling(void)
-{
-    CAN_InitTypeDef CAN_InitStructure;
-    CAN_FilterInitTypeDef CAN_FilterInitStructure;
-    CanTxMsg TxMessage;
-    CanRxMsg RxMessage;
-    uint32_t i = 0;
-    uint8_t TransmitMailbox = 0;
+// !! WHEEL weight acts as a reaction wheel :(
 
-    /* CAN register init */
-    CAN_DeInit( CAN1);
-    CAN_StructInit(&CAN_InitStructure);
-
-    /* CAN cell init */
-    CAN_InitStructure.CAN_TTCM = DISABLE;
-    CAN_InitStructure.CAN_ABOM = DISABLE;
-    CAN_InitStructure.CAN_AWUM = DISABLE;
-    CAN_InitStructure.CAN_NART = DISABLE;
-    CAN_InitStructure.CAN_RFLM = DISABLE;
-    CAN_InitStructure.CAN_TXFP = DISABLE;
-    CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;
-
-    CAN_InitStructure.CAN_SJW = CAN_SJW_1tq;
-    CAN_InitStructure.CAN_BS1 = CAN_BS1_3tq;
-    CAN_InitStructure.CAN_BS2 = CAN_BS2_5tq;
-    //CAN_InitStructure.CAN_Prescaler = 4*16; //Prescaler for 62.5 kBps
-    //CAN_InitStructure.CAN_Prescaler = 4*8; //Prescaler for 125 kBps
-    //CAN_InitStructure.CAN_Prescaler = 4*4; //Prescaler for 250 kBps
-    CAN_InitStructure.CAN_Prescaler = 4*2; //Prescaler for 500 kBps
-    //CAN_InitStructure.CAN_Prescaler = 4*1; //Prescaler for 1 MBps
-
-    CAN_Init(CAN1, &CAN_InitStructure);
-    while(CAN_Init(CAN1, &CAN_InitStructure) != CAN_InitStatus_Success);
-
-    /* CAN filter init */
-    CAN_FilterInitStructure.CAN_FilterNumber = 0;
-    CAN_FilterInitStructure.CAN_FilterMode = CAN_FilterMode_IdMask;
-    CAN_FilterInitStructure.CAN_FilterScale = CAN_FilterScale_32bit;
-    CAN_FilterInitStructure.CAN_FilterIdHigh = 0x0000;
-    CAN_FilterInitStructure.CAN_FilterIdLow = 0x0000;
-    CAN_FilterInitStructure.CAN_FilterMaskIdHigh = 0x0000;
-    CAN_FilterInitStructure.CAN_FilterMaskIdLow = 0x0000;
-    CAN_FilterInitStructure.CAN_FilterFIFOAssignment = 0;
-    CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
-    CAN_FilterInit(&CAN_FilterInitStructure);
-
-
-
-    /* transmit */
-    // TxMessage.StdId = 0x11;
-    TxMessage.ExtId = 0;
-    TxMessage.RTR = CAN_RTR_DATA;
-    TxMessage.IDE = CAN_ID_EXT;
-    TxMessage.DLC = 2;
-    TxMessage.Data[0] = 0xCA;
-    TxMessage.Data[1] = 0xFE;
-
-    TransmitMailbox = CAN_Transmit(CAN1, &TxMessage);
-    i = 0;
-    while ((CAN_TransmitStatus(CAN1, TransmitMailbox) != CANTXOK)
-            && (i != 0xFF))
-    {
-        i++;
-    }
-
-    i = 0;
-    while ((CAN_MessagePending(CAN1, CAN_FIFO0) < 1) && (i != 0xFF))
-    {
-        i++;
-    }
-//
-    /* receive */
-    RxMessage.StdId = 0x00;
-    RxMessage.IDE = CAN_ID_STD;
-    RxMessage.DLC = 0;
-    RxMessage.Data[0] = 0x00;
-    RxMessage.Data[1] = 0x00;
-
-
-
-    CAN_Receive(CAN1, CAN_FIFO0, &RxMessage);
-
-
-//    return FAILED;
-//
-//    if (RxMessage.StdId != 0x11)
-//    {
-//        return FAILED;
-//    }
-//
-//    if (RxMessage.IDE != CAN_ID_STD)
-//    {
-//        return FAILED;
-//    }
-//
-//    if (RxMessage.DLC != 2)
-//    {
-//        return FAILED;
-//    }
-
-//    if (RxMessage.Data[0] == 0x7D)
-//    {
-//      status_led_ext->toggle();
-//    }
-
-
-
-    return PASSED; /* Test Passed */
-}
-
+extern uint8_t cf_data[] asm("_binary_build_descriptor_pb_bin_deflate_start");
+extern uint8_t cf_data_e[] asm("_binary_build_descriptor_pb_bin_deflate_end");
 
 int main(void) {
   SystemInit();
@@ -358,45 +210,13 @@ int main(void) {
   }
 
 
-
-//
-//  /*********** CAN **********/
-//
-//  RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
-//
-//  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-//
-//
-//
-//  GPIO_InitTypeDef GPIO_InitStructure;
-//  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-//  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-//  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-//  GPIO_Init(GPIOB, &GPIO_InitStructure);
-//
-//  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-//  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
-//  GPIO_Init(GPIOB, &GPIO_InitStructure);
-//
-//  GPIO_PinRemapConfig(RCC_APB2Periph_GPIOB , ENABLE);
-//
-//  while (1) {
-//    status_led_ext->toggle();
-//    CAN_Polling();
-//  }
-
-
-  /*********** END CAN **********/
-
-//  /* Enable Watchdog*/
-//  IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
-//  IWDG_SetPrescaler(IWDG_Prescaler_8);  // 4, 8, 16 ... 256
-//  IWDG_SetReload(
-//      0x0FFF);  // This parameter must be a number between 0 and 0x0FFF.
-//  IWDG_ReloadCounter();
-//  IWDG_Enable();
-
-
+  /* Enable Watchdog*/
+  IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+  IWDG_SetPrescaler(IWDG_Prescaler_8);  // 4, 8, 16 ... 256
+  IWDG_SetReload(
+      0x0FFF);  // This parameter must be a number between 0 and 0x0FFF.
+  IWDG_ReloadCounter();
+  IWDG_Enable();
 
   initArduino();
 
@@ -408,7 +228,6 @@ int main(void) {
   if (readSettingsFromFlash(&cfg)) {
     const char msg[] = "Config OK\n";
     Serial1.Send((uint8_t *)msg, sizeof(msg));
-    applyCalibrationConfig(cfg, &accGyro);
   } else {
     cfg = Config_init_default;
     const char msg[] = "Config DEFAULT\n";
@@ -426,47 +245,8 @@ int main(void) {
   GenericOut status_led(RCC_APB2Periph_GPIOB, GPIOB, GPIO_Pin_4, 1);  // red
   status_led.init();
   status_led.setState(0);
-  status_led_ext = &status_led;
 
-
-
-  /*********** CAN **********/
-
-  RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
-
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-
-
-  GPIO_InitTypeDef GPIO_InitStructure;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
-  GPIO_Init(GPIOB, &GPIO_InitStructure);
-
-
-
-  GPIO_PinRemapConfig(GPIO_Remap1_CAN1 , ENABLE);
-
-  CAN_Polling();
-
-  while (1) {
-    //status_led_ext->toggle();
-//  	GPIO_WriteBit(GPIOB, GPIO_Pin_9, Bit_SET);
-//  	GPIO_WriteBit(GPIOB, GPIO_Pin_9, Bit_RESET);
-    while (comm_can_set_current(1, 10) == CAN_TxStatus_NoMailBox) status_led_ext->setState(true);
-    while (comm_can_set_current(2, 10) == CAN_TxStatus_NoMailBox) status_led_ext->setState(true);
-    while (comm_can_set_current(3, 10) == CAN_TxStatus_NoMailBox) status_led_ext->setState(true);
-
-    status_led_ext->setState(false);
-    delay( 10);
-  }
-
-
-	/*********** END CAN **********/
+  initCAN();
 
 
   IMU imu(&cfg);
@@ -475,18 +255,10 @@ int main(void) {
                     &angle_guard);  // wait for angle. Wait for pads too?
   accGyro.setListener(&waiter);
   accGyro.init(cfg.balance_settings.global_gyro_lpf);
+  accGyro.setAccGyroOrientation(cfg.callibration.x_offset, cfg.callibration.y_offset, cfg.callibration.z_offset);
 
   GenericOut beeper(RCC_APB2Periph_GPIOA, GPIOA, GPIO_Pin_12, true);
   beeper.init(true);
-
-  StepperOut::InitAll();
-  StepperOut motor1(0);
-  StepperOut motor2(1);
-  StepperOut motor3(2);
-
-  motor1.set(0);
-  motor2.set(0);
-  motor3.set(0);
 
   initRx();
 
@@ -510,7 +282,7 @@ int main(void) {
 
 
 
-  static BoardController main_ctrl(&cfg, imu, &motor1, &motor2, &motor3, status_led, beeper, guards,
+  static BoardController main_ctrl(&cfg, imu, status_led, beeper, guards,
                             guards_count, green_led, &vesc);
 
   accGyro.setListener(&main_ctrl);
@@ -539,7 +311,7 @@ int main(void) {
           debug[write_pos++] = (int8_t) (main_ctrl.fwd / 10);
           break;
         case 4:
-          debug[write_pos++] = (int8_t)(vesc.mc_values_.avg_motor_current);
+          debug[write_pos++] = (int8_t)(main_ctrl.motor1_.get());
           break;
         case 5:
           debug[write_pos++] = (int8_t)(vesc.mc_values_.v_in);
@@ -588,16 +360,13 @@ int main(void) {
         Config_Callibration c = cfg.callibration;
         bool good =
             readSettingsFromBuffer(&cfg, comms.data(), comms.data_len());
-        if (good)
+        if (good) {
           comms.SendMsg(ReplyId_GENERIC_OK);
+          accGyro.setAccGyroOrientation(cfg.callibration.x_offset, cfg.callibration.y_offset, cfg.callibration.z_offset);
+        }
         else
-          comms.SendMsg(ReplyId_GENERIC_FAIL);
-        if (!cfg.has_callibration)  // use own calibration if not received one.
         {
-          cfg.callibration = c;
-          cfg.has_callibration = true;
-        } else {
-          applyCalibrationConfig(cfg, &accGyro);
+          comms.SendMsg(ReplyId_GENERIC_FAIL);
         }
         break;
       }
@@ -637,21 +406,13 @@ int main(void) {
       	}
       	break;
 
-
-      case RequestId_CALLIBRATE_ACC:
-        comms.SendMsg(ReplyId_GENERIC_OK);
-        accGyro.callibrateAcc();
-        while (!accGyro.accCalibrationComplete()) IWDG_ReloadCounter();
-        cfg.has_callibration = true;
-        cfg.callibration.acc_x = accGyro.getAccOffsets()[0];
-        cfg.callibration.acc_y = accGyro.getAccOffsets()[1];
-        cfg.callibration.acc_z = accGyro.getAccOffsets()[2];
-        comms.SendMsg(ReplyId_GENERIC_OK);
-        break;
-
       case RequestId_SAVE_CONFIG:
         saveSettingsToFlash(cfg);
         comms.SendMsg(ReplyId_GENERIC_OK);
+        break;
+
+      case RequestId_GET_CONFIG_DESCRIPTOR:
+        comms.SendMsg(ReplyId_CONFIG_DESCRIPTOR, (uint8_t*)cf_data, (int)cf_data_e - (int)cf_data);
         break;
     }
 

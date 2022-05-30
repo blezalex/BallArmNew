@@ -55,6 +55,8 @@ public:
 
 	void callibrateAcc();
 
+	void setAccGyroOrientation(float roll, float pitch, float yaw);
+
 	void applyAccZeroOffsets(int16_t* offsets_x_y_z) {
 		for (int i = 0; i < 3; i++) {
 			accZeroOffsets_[i] = offsets_x_y_z[i];
@@ -71,13 +73,15 @@ private:
 
 	UpdateListener* listener_;
 
-	int16_t accZeroOffsets_[3];
+	int16_t accZeroOffsets_[3] = {0,0,0};
 
 	volatile int32_t gyroCalibrationIterationsLeft_;
 	volatile int32_t accCalibrationIterationsLeft_;
 
 	int32_t gyroCalibrationAccumulator_[3];
-	int16_t gyroZeroOffsets_[3]; // calculated internally
+	int16_t gyroZeroOffsets_[3] = {0,0,0}; // calculated internally
+
+	float imu_rotation[3][3];
 };
 
 extern Mpu accGyro;

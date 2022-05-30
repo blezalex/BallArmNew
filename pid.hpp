@@ -1,7 +1,7 @@
 #ifndef _PID_H
 #define _PID_H
 #include "global.h"
-#include "drv/comms/protocol.pb.h"
+#include "drv/comms/config.pb.h"
 
 class PidController {
 public:

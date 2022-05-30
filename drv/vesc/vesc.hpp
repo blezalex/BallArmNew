@@ -134,3 +134,7 @@ private:
 
 	uint16_t last_uart_data_time_ = 0;
 };
+
+
+uint8_t comm_can_set_current(uint8_t controller_id, float current);
+
