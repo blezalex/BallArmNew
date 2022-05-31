@@ -76,8 +76,8 @@ public:
 	  : settings_(settings),
 		imu_(imu),
 		state_(guards, guards_count),
-		pitch_balancer_(settings_, &(settings_->pitch_pid)),
-		roll_balancer_(settings_, &(settings_->roll_pid)),
+		pitch_balancer_(settings_, &(settings_->angle_pid)),
+		roll_balancer_(settings_, &(settings_->angle_pid)),
 		yaw_pid_controler_(&(settings_->yaw_pid)),
 		motor1_(&out[0], &settings->balance_settings),
 		motor2_(&out[1], &settings->balance_settings),
@@ -133,9 +133,9 @@ public:
 			float fwdTargetAngle = mapRcInput(rxVals[1]) * 5;
 			float rightTargetAngle = mapRcInput(rxVals[0]) * 5;
 			
-			//float yaw = yaw_pid_controler_.compute(update.gyro[2])  * state_.start_progress();
-			float yaw = mapRcInput(rxVals[3]) * 1500;
-
+			// float yaw_target = mapRcInput(rxVals[3]) * 1500;
+			float yaw_target = 0;
+			float yaw = yaw_pid_controler_.compute(update.gyro[2] - yaw_target)  * state_.start_progress();
 
 			if (current_state == State::Starting){
 				fwd = pitch_balancer_.computeStarting(imu_.angles[1] - fwdTargetAngle, update.gyro[1], state_.start_progress());

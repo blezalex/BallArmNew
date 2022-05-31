@@ -27,7 +27,4 @@ PB_BIND(Config_PusbackSettings, Config_PusbackSettings, AUTO)
 PB_BIND(Config_Misc, Config_Misc, AUTO)
 
 
-PB_BIND(Config_FloatSettings, Config_FloatSettings, AUTO)
-
-
 

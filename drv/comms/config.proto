@@ -17,11 +17,11 @@ message Config {
     optional float i_expo = 13 [ default = 0 ];
   }
 
-  required PidConfig pitch_pid = 2;
+  required PidConfig angle_pid = 2;
   
-  required PidConfig roll_pid = 8;
+  required PidConfig rate_pid = 9;
 
-  required PidConfig yaw_pid = 9;
+  required PidConfig yaw_pid = 8;
 
   message FootPadSettings {
     required float filter_rc = 1 [ default = 0.05 ];
