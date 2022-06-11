@@ -1,6 +1,7 @@
 #pragma once
-#include "io/usart.hpp"
+#include "../../io/usart.hpp"
 #include <string.h>
+#include <stdint.h>
 
 typedef struct {
 	float v_in;
@@ -14,7 +15,7 @@ typedef struct {
 	float amp_hours_charged;
 	int32_t tachometer;
 	int32_t tachometer_abs;
-
+	
 	float v_in_smoothed;
 	float duty_smoothed;
 	float erpm_smoothed;
@@ -33,6 +34,8 @@ public:
 	void setCurrentBrake(float current);
 
 	int update();
+
+	void updateCan();
 
 
 	// Communication commands
@@ -109,7 +112,6 @@ public:
 		COMM_BM_REBOOT,
 		COMM_BM_DISCONNECT
 	} COMM_PACKET_ID;
-
 
 public:
 	mc_values mc_values_;

@@ -324,6 +324,8 @@ int main(void) {
       if (write_pos >= sizeof(debug)) write_pos = 0;
     }
 
+    vesc.updateCan();
+
     uint8_t comms_msg = comms.update();
     switch (comms_msg) {
       case RequestId_READ_CONFIG: {
@@ -379,8 +381,8 @@ int main(void) {
         stats.pad_pressure1 = main_ctrl.fwd;
         stats.batt_current = main_ctrl.motor1_.get();
         stats.batt_voltage = main_ctrl.motor2_.get();
-//        stats.batt_current = vesc.mc_values_.avg_input_current;
-//        stats.batt_voltage = vesc.mc_values_.v_in;
+        stats.batt_current = vesc.mc_values_.avg_input_current;
+        stats.batt_voltage = vesc.mc_values_.v_in;
         stats.motor_current = vesc.mc_values_.avg_motor_current;
         stats.distance_traveled = vesc.mc_values_.tachometer_abs;
         stats.speed = vesc.mc_values_.rpm;
