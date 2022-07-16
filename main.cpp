@@ -209,7 +209,6 @@ int main(void) {
   while (RCC_GetFlagStatus(RCC_FLAG_LSIRDY) == RESET) {
   }
 
-
   /* Enable Watchdog*/
   IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
   IWDG_SetPrescaler(IWDG_Prescaler_8);  // 4, 8, 16 ... 256
@@ -271,8 +270,8 @@ int main(void) {
   //	GenericOut debug_out(RCC_APB2Periph_GPIOA, GPIOA, GPIO_Pin_11, false);
   //	debug_out.init();
 
-  //FootpadGuard foot_pad_guard(&cfg.foot_pad);
-  Guard *guards[] = {&angle_guard};
+  FootpadGuard foot_pad_guard(&cfg.foot_pad);
+  Guard *guards[] = {&angle_guard, &foot_pad_guard};
   int guards_count = sizeof(guards) / sizeof(Guard *);
 
   VescComm vesc(&Serial2);
@@ -339,6 +338,14 @@ int main(void) {
         break;
       }
 
+      case RequestId_SET_DEBUG_STREAM_ID:
+      	if (comms.data_len() == 1) {
+      		debug_stream_type = comms.data()[0];
+      	} else {
+      		comms.SendMsg(ReplyId_GENERIC_FAIL);
+      	}
+      	break;
+
       case RequestId_GET_DEBUG_BUFFER: {
         // TODO: make sure it all fits in TX buffer or an overrun will occur
         if (write_pos < read_pos) {
@@ -400,13 +407,6 @@ int main(void) {
         break;
       }
 
-      case RequestId_SET_DEBUG_STREAM_ID:
-      	if (comms.data_len() == 1) {
-      		debug_stream_type = comms.data()[0];
-      	} else {
-      		comms.SendMsg(ReplyId_GENERIC_FAIL);
-      	}
-      	break;
 
       case RequestId_SAVE_CONFIG:
         saveSettingsToFlash(cfg);

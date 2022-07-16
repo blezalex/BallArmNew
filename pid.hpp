@@ -35,7 +35,7 @@ public:
 	}
 
 	void reset() {
-		_sumI = 0;
+		resetI();
 		_prev_error = 0;
 	}
 

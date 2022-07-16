@@ -24,7 +24,7 @@
 		}
 
 		comms_->Send(header, kHeaderSize);
-    comms_->SendWithWait(data, data_len);
+    	comms_->SendWithWait(data, data_len);
 		comms_->SendWithWait((uint8_t*)&crc32, kSuffixSize);
 	}
 

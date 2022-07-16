@@ -42,17 +42,17 @@
 //inline int sgn(float val) { return (0 < val) - (val < 0); }
 inline int sgn(float val) { return val >= 0 ? 1 : -1; } // returns 1 for 0 and up, -1 for less than zero.
 
-inline float applyExpoReal(float x, float k) { return sgn(x) * powf(fabs(x), 1+k); }
+inline float applyExpoReal(float x, float k) { return sgn(x) * powf(fabsf(x), 1+k); }
 
 constexpr float E =  2.71828;
 
 inline float applyExpoNatural(float x, float k) {
-	float absx = fabs(x);
+	float absx = fabsf(x);
 	return sgn(x) * (powf(E, k*absx) - 1) / (powf(E, k) - 1) ;
 }
 
 inline float applyExpoPoly(float x, float k) {
-	float absx = fabs(x);
+	float absx = fabsf(x);
 	return sgn(x) * absx/(1+k*(1-absx));
 }
 
