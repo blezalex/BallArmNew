@@ -1,16 +1,3 @@
-#include "stm_lib/inc/misc.h"
-#include "cmsis_boot/stm32f10x.h"
-#include "stm_lib/inc/stm32f10x_dma.h"
-#include "stm_lib/inc/stm32f10x_exti.h"
-#include "stm_lib/inc/stm32f10x_flash.h"
-#include "stm_lib/inc/stm32f10x_gpio.h"
-#include "stm_lib/inc/stm32f10x_i2c.h"
-#include "stm_lib/inc/stm32f10x_iwdg.h"
-#include "stm_lib/inc/stm32f10x_rcc.h"
-#include "stm_lib/inc/stm32f10x_adc.h"
-#include "stm_lib/inc/stm32f10x_can.h"
-
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +5,7 @@
 #include "arduino.h"
 #include "balanceController.hpp"
 #include "boardController.hpp"
+#include "cmsis_boot/stm32f10x.h"
 #include "drv/comms/communicator.hpp"
 #include "drv/mpu6050/mpu.hpp"
 #include "drv/settings/settings.hpp"
@@ -28,13 +16,22 @@
 #include "imu/imu.hpp"
 #include "io/genericOut.hpp"
 #include "io/i2c.hpp"
-#include "io/usart.hpp"
 #include "io/rx.h"
+#include "io/usart.hpp"
 #include "ledController.hpp"
 #include "lpf.hpp"
 #include "pid.hpp"
 #include "stateTracker.hpp"
-
+#include "stm_lib/inc/misc.h"
+#include "stm_lib/inc/stm32f10x_adc.h"
+#include "stm_lib/inc/stm32f10x_can.h"
+#include "stm_lib/inc/stm32f10x_dma.h"
+#include "stm_lib/inc/stm32f10x_exti.h"
+#include "stm_lib/inc/stm32f10x_flash.h"
+#include "stm_lib/inc/stm32f10x_gpio.h"
+#include "stm_lib/inc/stm32f10x_i2c.h"
+#include "stm_lib/inc/stm32f10x_iwdg.h"
+#include "stm_lib/inc/stm32f10x_rcc.h"
 
 extern "C" void EXTI15_10_IRQHandler(void) {
   if (EXTI_GetITStatus(MPU6050_INT_Exti))  // MPU6050_INT
@@ -45,15 +42,14 @@ extern "C" void EXTI15_10_IRQHandler(void) {
 }
 
 extern "C" void EXTI0_IRQHandler(void) {
-	constexpr uint32_t line = EXTI_Line0;
+  constexpr uint32_t line = EXTI_Line0;
 
   // GPIOB->BSRR = GPIO_Pin_3;
-  if (EXTI_GetITStatus(line))
-  {
+  if (EXTI_GetITStatus(line)) {
     EXTI_ClearITPendingBit(line);
     on_ppm_interrupt();
   }
-  
+
   // GPIOB->BRR = GPIO_Pin_3;
 }
 
@@ -97,47 +93,41 @@ static uint8_t debug[200];
 static Communicator comms;
 
 void initRx() {
-	/* GPIO configuration */
-	GPIO_InitTypeDef  GPIO_InitStructure;
-	GPIO_InitStructure.GPIO_Pin =  GPIO_Pin_0;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
-	GPIO_Init(GPIOB, &GPIO_InitStructure);
+  /* GPIO configuration */
+  GPIO_InitTypeDef GPIO_InitStructure;
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
+  GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource0);
+  GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource0);
 
-	EXTI_InitTypeDef EXTI_InitStructure;
-	EXTI_InitStructure.EXTI_Line = EXTI_Line0;
-	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
-	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-	EXTI_Init(&EXTI_InitStructure);
+  EXTI_InitTypeDef EXTI_InitStructure;
+  EXTI_InitStructure.EXTI_Line = EXTI_Line0;
+  EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+  EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+  EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+  EXTI_Init(&EXTI_InitStructure);
 
-	NVIC_InitTypeDef NVIC_InitStructure;
-	NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure);
+  NVIC_InitTypeDef NVIC_InitStructure;
+  NVIC_InitStructure.NVIC_IRQChannel = EXTI0_IRQn;
+  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
+  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+  NVIC_Init(&NVIC_InitStructure);
 }
 
 uint8_t debug_stream_type = 0;
 
 
-typedef enum
-{
-    FAILED = 0, PASSED = !FAILED
-} TestStatus;
-
-GenericOut* status_led_ext;
-
+GenericOut *status_led_ext;
 
 void initCAN() {
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_CAN1, ENABLE);
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
 
   GPIO_InitTypeDef GPIO_InitStructure;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
   GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
   GPIO_Init(GPIOB, &GPIO_InitStructure);
@@ -146,7 +136,7 @@ void initCAN() {
   GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
   GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-  GPIO_PinRemapConfig(GPIO_Remap1_CAN1 , ENABLE);
+  GPIO_PinRemapConfig(GPIO_Remap1_CAN1, ENABLE);
 
   CAN_InitTypeDef CAN_InitStructure;
   CAN_FilterInitTypeDef CAN_FilterInitStructure;
@@ -157,9 +147,9 @@ void initCAN() {
 
   /* CAN cell init */
   CAN_InitStructure.CAN_TTCM = DISABLE;
-  CAN_InitStructure.CAN_ABOM = DISABLE;
+  CAN_InitStructure.CAN_ABOM = ENABLE;
   CAN_InitStructure.CAN_AWUM = DISABLE;
-  CAN_InitStructure.CAN_NART = DISABLE;
+  CAN_InitStructure.CAN_NART = ENABLE;
   CAN_InitStructure.CAN_RFLM = DISABLE;
   CAN_InitStructure.CAN_TXFP = DISABLE;
   CAN_InitStructure.CAN_Mode = CAN_Mode_Normal;
@@ -168,11 +158,12 @@ void initCAN() {
   CAN_InitStructure.CAN_BS1 = CAN_BS1_3tq;
   CAN_InitStructure.CAN_BS2 = CAN_BS2_5tq;
 
-  CAN_InitStructure.CAN_Prescaler = 4*2; //Prescaler for 500 kBps
-  //CAN_InitStructure.CAN_Prescaler = 4*1; //Prescaler for 1 MBps
+  CAN_InitStructure.CAN_Prescaler = 4 * 2;  // Prescaler for 500 kBps
+  // CAN_InitStructure.CAN_Prescaler = 4*1; //Prescaler for 1 MBps
 
   CAN_Init(CAN1, &CAN_InitStructure);
-  while(CAN_Init(CAN1, &CAN_InitStructure) != CAN_InitStatus_Success);
+  while (CAN_Init(CAN1, &CAN_InitStructure) != CAN_InitStatus_Success)
+    ;
 
   /* CAN filter init */
   CAN_FilterInitStructure.CAN_FilterNumber = 0;
@@ -186,8 +177,6 @@ void initCAN() {
   CAN_FilterInitStructure.CAN_FilterActivation = ENABLE;
   CAN_FilterInit(&CAN_FilterInitStructure);
 }
-
-
 
 // !! WHEEL weight acts as a reaction wheel :(
 
@@ -246,7 +235,7 @@ int main(void) {
   status_led.setState(0);
 
   initCAN();
-
+  VescComm::initCan();
 
   IMU imu(&cfg);
   AngleGuard angle_guard(imu, &cfg.balance_settings);
@@ -254,7 +243,9 @@ int main(void) {
                     &angle_guard);  // wait for angle. Wait for pads too?
   accGyro.setListener(&waiter);
   accGyro.init(cfg.balance_settings.global_gyro_lpf);
-  accGyro.setAccGyroOrientation(cfg.callibration.x_offset, cfg.callibration.y_offset, cfg.callibration.z_offset);
+  accGyro.setAccGyroOrientation(cfg.callibration.x_offset,
+                                cfg.callibration.y_offset,
+                                cfg.callibration.z_offset);
 
   GenericOut beeper(RCC_APB2Periph_GPIOA, GPIOA, GPIO_Pin_12, true);
   beeper.init(true);
@@ -271,18 +262,15 @@ int main(void) {
   //	debug_out.init();
 
   FootpadGuard foot_pad_guard(&cfg.foot_pad);
-  Guard *guards[] = {&angle_guard, &foot_pad_guard};
+  Guard *guards[] = {&angle_guard};
   int guards_count = sizeof(guards) / sizeof(Guard *);
 
-  VescComm vesc(&Serial2);
   LPF erpm_lpf(&cfg.misc.erpm_rc);
   LPF v_in_lpf(&cfg.misc.volt_rc);
   LPF duty_lpf(&cfg.misc.duty_rc);
 
-
-
   static BoardController main_ctrl(&cfg, imu, status_led, beeper, guards,
-                            guards_count, green_led, &vesc);
+                                   guards_count, green_led);
 
   accGyro.setListener(&main_ctrl);
 
@@ -298,32 +286,31 @@ int main(void) {
     if ((uint16_t)(millis() - last_check_time) > 100u) {
       last_check_time = millis();
 
-      led_controller_set_state(vesc.mc_values_.rpm, imu.angles[ANGLE_DRIVE]);
       switch (debug_stream_type) {
         case 1:
           debug[write_pos++] = (int8_t)imu.angles[ANGLE_DRIVE];
           break;
         case 2:
-          debug[write_pos++] = (int8_t) (main_ctrl.right / 10);
+          debug[write_pos++] = (int8_t)(main_ctrl.right / 10);
           break;
         case 3:
-          debug[write_pos++] = (int8_t) (main_ctrl.fwd / 10);
+          debug[write_pos++] = (int8_t)(main_ctrl.fwd / 10);
           break;
         case 4:
           debug[write_pos++] = (int8_t)(main_ctrl.motor1_.get());
           break;
-        case 5:
-          debug[write_pos++] = (int8_t)(vesc.mc_values_.v_in);
-          break;
-        case 6:
-          debug[write_pos++] = (int8_t)(vesc.mc_values_.avg_input_current);
-          break;
+        // case 5:
+        //   debug[write_pos++] = (int8_t)(vesc.mc_values_.v_in);
+        //   break;
+        // case 6:
+        //   debug[write_pos++] = (int8_t)(vesc.mc_values_.avg_input_current);
+        //   break;
       }
 
       if (write_pos >= sizeof(debug)) write_pos = 0;
     }
 
-    vesc.updateCan();
+    VescComm::updateCan();
 
     uint8_t comms_msg = comms.update();
     switch (comms_msg) {
@@ -339,12 +326,12 @@ int main(void) {
       }
 
       case RequestId_SET_DEBUG_STREAM_ID:
-      	if (comms.data_len() == 1) {
-      		debug_stream_type = comms.data()[0];
-      	} else {
-      		comms.SendMsg(ReplyId_GENERIC_FAIL);
-      	}
-      	break;
+        if (comms.data_len() == 1) {
+          debug_stream_type = comms.data()[0];
+        } else {
+          comms.SendMsg(ReplyId_GENERIC_FAIL);
+        }
+        break;
 
       case RequestId_GET_DEBUG_BUFFER: {
         // TODO: make sure it all fits in TX buffer or an overrun will occur
@@ -371,10 +358,10 @@ int main(void) {
             readSettingsFromBuffer(&cfg, comms.data(), comms.data_len());
         if (good) {
           comms.SendMsg(ReplyId_GENERIC_OK);
-          accGyro.setAccGyroOrientation(cfg.callibration.x_offset, cfg.callibration.y_offset, cfg.callibration.z_offset);
-        }
-        else
-        {
+          accGyro.setAccGyroOrientation(cfg.callibration.x_offset,
+                                        cfg.callibration.y_offset,
+                                        cfg.callibration.z_offset);
+        } else {
           comms.SendMsg(ReplyId_GENERIC_FAIL);
         }
         break;
@@ -388,14 +375,17 @@ int main(void) {
         stats.pad_pressure1 = main_ctrl.fwd;
         stats.batt_current = main_ctrl.motor1_.get();
         stats.batt_voltage = main_ctrl.motor2_.get();
-        stats.batt_current = vesc.mc_values_.avg_input_current;
-        stats.batt_voltage = vesc.mc_values_.v_in;
-        stats.motor_current = vesc.mc_values_.avg_motor_current;
-        stats.distance_traveled = vesc.mc_values_.tachometer_abs;
-        stats.speed = vesc.mc_values_.rpm;
-        stats.motor_duty = vesc.mc_values_.duty_now;
-        stats.esc_temp = vesc.mc_values_.temp_mos_filtered;
-        stats.motor_temp = vesc.mc_values_.temp_motor_filtered;
+        stats.batt_current = main_ctrl.out[0].mc_values_.avg_input_current +
+                             main_ctrl.out[1].mc_values_.avg_input_current +
+                             main_ctrl.out[2].mc_values_.avg_input_current;
+        stats.batt_voltage = main_ctrl.out[0].mc_values_.v_in;
+        stats.motor_current = main_ctrl.out[0].mc_values_.avg_motor_current;
+        stats.distance_traveled = main_ctrl.out[1].mc_values_.avg_motor_current;
+        stats.speed = main_ctrl.out[2].mc_values_.avg_motor_current;
+        // stats.motor_duty = vesc.mc_values_.duty_now;
+        // stats.esc_temp = vesc.mc_values_.temp_mos_filtered;
+        
+        stats.motor_temp = CAN_GetReceiveErrorCounter(CAN1) + CAN_GetLSBTransmitErrorCounter(CAN1);
 
         int16_t data_len =
             saveProtoToBuffer(scratch, sizeof(scratch), Stats_fields, &stats);
@@ -407,25 +397,15 @@ int main(void) {
         break;
       }
 
-
       case RequestId_SAVE_CONFIG:
         saveSettingsToFlash(cfg);
         comms.SendMsg(ReplyId_GENERIC_OK);
         break;
 
       case RequestId_GET_CONFIG_DESCRIPTOR:
-        comms.SendMsg(ReplyId_CONFIG_DESCRIPTOR, (uint8_t*)cf_data, (int)cf_data_e - (int)cf_data);
+        comms.SendMsg(ReplyId_CONFIG_DESCRIPTOR, (uint8_t *)cf_data,
+                      (int)cf_data_e - (int)cf_data);
         break;
-    }
-
-    if (vesc.update() == (uint8_t)VescComm::COMM_PACKET_ID::COMM_GET_VALUES) {
-      // got a stats update; recalculate smoothed values
-      // Runs at 20hz (values requested from balance controller to sync with
-      // current control over USART request.
-      vesc.mc_values_.erpm_smoothed = erpm_lpf.compute(vesc.mc_values_.rpm);
-      vesc.mc_values_.v_in_smoothed = v_in_lpf.compute(vesc.mc_values_.v_in);
-      vesc.mc_values_.duty_smoothed =
-          duty_lpf.compute(vesc.mc_values_.duty_now);
     }
   }
 }

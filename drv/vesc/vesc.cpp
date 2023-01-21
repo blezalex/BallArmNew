@@ -4,6 +4,8 @@
 
 #include "stm_lib/inc/stm32f10x_can.h"
 
+VescComm* VescComm::vescs_[VescComm::kNumCanVescs];
+
 void VescComm::sendRequest(const uint8_t *payload, int payload_len) {
   uint16_t crc_payload = crc16(payload, payload_len);
 
@@ -37,7 +39,16 @@ void VescComm::requestStats() {
   sendRequest(request, sizeof(request));
 }
 
+uint8_t comm_can_set_current(uint8_t controller_id, float current);
+
+
 void VescComm::setCurrent(float current) {
+  if (serial_ == nullptr) {
+    comm_can_set_current(can_id_, current);
+    return;
+  }
+
+
   uint8_t request[] = {(uint8_t)COMM_PACKET_ID::COMM_SET_CURRENT, 0, 0, 0, 0};
   int32_t send_index = 1;
   buffer_append_float32(request, current, 1000.0, &send_index);
@@ -256,9 +267,22 @@ void VescComm::updateCan() {
   CAN_Receive(CAN1, CAN_FIFO0, &can_msg);
 
   uint8_t id = can_msg.ExtId & 0xFF;
-  CAN_PACKET_ID cmd = (CAN_PACKET_ID)(can_msg.ExtId >> 8);
+  id--;
+  if (id >= kNumCanVescs) {
+    return;
+  }
 
-  uint8_t *data8 = can_msg.Data;
+  VescComm* vesc = vescs_[id];
+  if (vesc == nullptr) {
+    return;
+  }
+
+  vesc->processCanMessage(can_msg.ExtId, can_msg.Data);
+}
+
+void VescComm::processCanMessage(uint32_t ext_id, const uint8_t *data8) {
+  CAN_PACKET_ID cmd = (CAN_PACKET_ID)(ext_id >> 8);
+
   int32_t ind = 0;
   switch (cmd) {
     case CAN_PACKET_STATUS:

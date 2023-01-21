@@ -15,16 +15,21 @@ typedef struct {
 	float amp_hours_charged;
 	int32_t tachometer;
 	int32_t tachometer_abs;
-	
-	float v_in_smoothed;
-	float duty_smoothed;
-	float erpm_smoothed;
+
 } mc_values;
 
 class VescComm {
 public:
 	VescComm(Usart* serial) : serial_(serial) {
 		memset(&mc_values_, 0, sizeof(mc_values));
+	}
+
+	VescComm(uint8_t id) {
+		const uint8_t offset_id = id - 1;
+
+		while (offset_id >= kNumCanVescs);
+		vescs_[offset_id] = this;
+		can_id_ = id;
 	}
 
 	void requestStats();
@@ -35,8 +40,19 @@ public:
 
 	int update();
 
-	void updateCan();
+	void processCanMessage(uint32_t ext_id, const uint8_t *data8);
 
+	static void initCan() {
+		for (int i = 0; i < kNumCanVescs; i++) {
+			vescs_[i] = nullptr;
+		}
+	}
+
+	static constexpr uint8_t kNumCanVescs = 3;
+
+	static void updateCan();
+
+	static VescComm* vescs_[kNumCanVescs];
 
 	// Communication commands
 	enum class COMM_PACKET_ID {
@@ -127,7 +143,7 @@ private:
 		return rx_data_[0];
 	}
 
-	Usart* serial_;
+	Usart* serial_ = nullptr;
 
 	// buffer_pos_ always points  to non-written yet memory. bufferpos = 1 means have only one byte with index 0
 	int32_t buffer_pos_ = 0;
@@ -135,8 +151,6 @@ private:
 	uint8_t rx_data_[256];
 
 	uint16_t last_uart_data_time_ = 0;
+
+	uint8_t can_id_;
 };
-
-
-uint8_t comm_can_set_current(uint8_t controller_id, float current);
-
