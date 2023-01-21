@@ -300,7 +300,8 @@ void VescComm::processCanMessage(uint32_t ext_id, const uint8_t *data8) {
     case CAN_PACKET_STATUS_3:
       // stat_tmp_3->watt_hours = (float)buffer_get_int32(data8, &ind) / 1e4;
       // stat_tmp_3->watt_hours_charged = (float)buffer_get_int32(data8, &ind) /
-      // 1e4; break;
+      // 1e4; 
+      break;
 
     case CAN_PACKET_STATUS_4:
       mc_values_.temp_mos_filtered =
