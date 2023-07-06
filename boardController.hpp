@@ -134,7 +134,6 @@ class BoardController : public UpdateListener {
         right *= settings_->balance_settings.pid_to_current_mult;
 
 #ifdef MOTOR_90_DEG
-      right = -right;
       float speed1 = yaw + right;
       float speed2 =
           yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
