@@ -18,7 +18,7 @@
 #include "stm_lib/inc/stm32f10x_tim.h"
 
 
-#define BRAKE_VIA_USART
+#define MOTOR_90_DEG
 
 class ConstrainedOut {
  public:
@@ -150,12 +150,18 @@ class BoardController : public UpdateListener {
         }
 #endif
 
-        right = -right;
-        float speed1 = yaw + right;
-        float speed2 =
-            yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
-        float speed3 =
-            yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+#ifdef MOTOR_90_DEG
+      right = -right;
+      float speed1 = yaw + right;
+      float speed2 =
+          yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
+      float speed3 =
+          yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+#else
+			float speed1 = yaw + right;
+			float speed2 = yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
+		  float speed3 = yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+#endif
 
         motor1_.set(speed1);
         motor2_.set(speed2);

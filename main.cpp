@@ -119,7 +119,6 @@ void initRx() {
 
 uint8_t debug_stream_type = 0;
 
-
 GenericOut *status_led_ext;
 
 void initCAN() {
@@ -180,6 +179,9 @@ void initCAN() {
 
 // !! WHEEL weight acts as a reaction wheel :(
 
+// TODO !!!!!!!!!!!!!!!!!! make sure HAL sensors work correct (might be picking up noise from power wires. add filters)
+// CHECK max current.
+
 extern uint8_t cf_data[] asm("_binary_build_descriptor_pb_bin_deflate_start");
 extern uint8_t cf_data_e[] asm("_binary_build_descriptor_pb_bin_deflate_end");
 
@@ -201,8 +203,8 @@ int main(void) {
   /* Enable Watchdog*/
   IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
   IWDG_SetPrescaler(IWDG_Prescaler_8);  // 4, 8, 16 ... 256
-  IWDG_SetReload(
-      0x0FFF);  // This parameter must be a number between 0 and 0x0FFF.
+  // This parameter must be a number between 0 and 0x0FFF.
+  IWDG_SetReload(0x0FFF);
   IWDG_ReloadCounter();
   IWDG_Enable();
 
@@ -262,7 +264,7 @@ int main(void) {
   //	debug_out.init();
 
   FootpadGuard foot_pad_guard(&cfg.foot_pad);
-  Guard *guards[] = {&angle_guard};
+  Guard *guards[] = {&angle_guard, &foot_pad_guard};
   int guards_count = sizeof(guards) / sizeof(Guard *);
 
   LPF erpm_lpf(&cfg.misc.erpm_rc);
@@ -299,12 +301,12 @@ int main(void) {
         case 4:
           debug[write_pos++] = (int8_t)(main_ctrl.motor1_.get());
           break;
-        // case 5:
-        //   debug[write_pos++] = (int8_t)(vesc.mc_values_.v_in);
-        //   break;
-        // case 6:
-        //   debug[write_pos++] = (int8_t)(vesc.mc_values_.avg_input_current);
-        //   break;
+          // case 5:
+          //   debug[write_pos++] = (int8_t)(vesc.mc_values_.v_in);
+          //   break;
+          // case 6:
+          //   debug[write_pos++] = (int8_t)(vesc.mc_values_.avg_input_current);
+          //   break;
       }
 
       if (write_pos >= sizeof(debug)) write_pos = 0;
@@ -384,8 +386,9 @@ int main(void) {
         stats.speed = main_ctrl.out[2].mc_values_.avg_motor_current;
         // stats.motor_duty = vesc.mc_values_.duty_now;
         // stats.esc_temp = vesc.mc_values_.temp_mos_filtered;
-        
-        stats.motor_temp = CAN_GetReceiveErrorCounter(CAN1) + CAN_GetLSBTransmitErrorCounter(CAN1);
+
+        stats.motor_temp = CAN_GetReceiveErrorCounter(CAN1) +
+                           CAN_GetLSBTransmitErrorCounter(CAN1);
 
         int16_t data_len =
             saveProtoToBuffer(scratch, sizeof(scratch), Stats_fields, &stats);

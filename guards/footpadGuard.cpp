@@ -59,7 +59,8 @@ void initADCs() {
 void FootpadGuard::Update() {
 	for (int i = 0; i < 2; i++) {
 		padLevelFilter[0].compute(ADC1_Buffer[0]);
-		padLevelFilter[1].compute(ADC1_Buffer[1]);
+		// TODO: revert this. Both pads are scanned from the same source.
+		padLevelFilter[1].compute(ADC1_Buffer[0]);
 	}
 
 	if (!seen_booth_off) {
