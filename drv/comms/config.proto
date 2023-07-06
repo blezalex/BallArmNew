@@ -17,13 +17,13 @@ message Config {
     optional float i_expo = 13 [ default = 0 ];
   }
 
-  required PidConfig angle_pid = 2;
+  required PidConfig roll_angle_pid = 2;
   
-  required PidConfig rate_pid = 9;
+  required PidConfig roll_rate_pid = 9;
 
-  required PidConfig rate2_pid = 14;
+  required PidConfig pitch_rate_pid = 14;
 
-  required PidConfig angle2_pid = 15;
+  required PidConfig pitch_angle_pid = 15;
 
   required PidConfig yaw_pid = 8;
 
@@ -40,7 +40,7 @@ message Config {
     // min value is 1 = linear
     required float balance_expo = 1 [ default = 0.15 ];
 
-    // scale input angel in deg by deviding by 'balance_angle_scaling'
+    // scale input angel in deg by deviding by 'balance_angle_scaling'.
     required float balance_angle_scaling = 2 [ default = 15 ];
 
     required int32 max_start_angle_steer = 3 [ default = 15 ];
@@ -78,5 +78,4 @@ message Config {
   }
 
   required BalancingConfig balance_settings = 4;
-  
 }

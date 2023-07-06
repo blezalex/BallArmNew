@@ -70,5 +70,4 @@ private:
 	PidController angle_pid_;
 	PidController rate_pid_;
 	float prev_error_;
-
 };
