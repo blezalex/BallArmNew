@@ -6,7 +6,7 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(Config, Config, 2)
+PB_BIND(Config, Config, AUTO)
 
 
 PB_BIND(Config_Callibration, Config_Callibration, AUTO)
@@ -19,12 +19,6 @@ PB_BIND(Config_FootPadSettings, Config_FootPadSettings, AUTO)
 
 
 PB_BIND(Config_BalancingConfig, Config_BalancingConfig, AUTO)
-
-
-PB_BIND(Config_PusbackSettings, Config_PusbackSettings, AUTO)
-
-
-PB_BIND(Config_Misc, Config_Misc, AUTO)
 
 
 

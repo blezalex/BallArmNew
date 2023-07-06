@@ -64,45 +64,15 @@ message Config {
 
     optional float imu_beta = 11 [ default = 0.02 ];
 
-    // 0 - exponential, 1 natural, 2 - poly
+    // 0 - no expo, 1 - exponential, 2 natural, 3 - poly
     optional int32 expo_type = 12 [ default = 0 ];
 
-    // If non-zero, balance controler sends current control requests via usart
-    // (keep PPM wire disconnected.)
-    optional float usart_control_scaling = 13 [ default = 0 ];
+    optional float pid_to_current_mult = 13 [ default = 0 ];
+    
+    // Angle to rate pid multiplier
+    optional float angle_to_rate_mult = 14 [ default = 0 ];
   }
 
   required BalancingConfig balance_settings = 4;
-
-  message PusbackSettings {
-    required int32 min_speed_erpm = 1 [ default = 1000 ];
-    required int32 push_angle = 2 [ default = 5 ];
-
-    required float push_raise_speed_deg_sec = 3 [ default = 0.5 ];
-    required float push_release_speed_deg_sec = 4 [ default = 0.2 ];
-  }
   
-  message Misc {
-    // 0-1, 1 = 100% of output power = no warning at all
-    required float throttle_threshold = 7 [ default = 0.75 ];
-    required float throttle_rc = 6 [ default = 0.05 ];
-
-    // Get pushback/beep if duty_cycle exceeds this threshold
-    optional float duty_threshold = 8 [ default = 0.75 ];
-    optional float duty_rc = 9 [ default = 0.25 ];
-
-    // Get pushback/beep if erpm exceeds this threshold
-    optional int32 erpm_threshold = 10 [ default = 6000 ];
-    optional float erpm_rc = 11 [ default = 0.25 ];
-
-    // Get pushback/beep if voltage drops below this threshold
-    optional float low_volt_threshold = 12 [ default = 45 ];
-    optional float volt_rc = 13 [ default = 0.25 ];
-
-    // add current erpm to throttle input with 'speed_input_mixin' weight
-    optional float speed_input_mixin = 14 [ default = 0 ];
-  }
-  
-  required Misc misc = 5;
-  optional PusbackSettings  pushback = 6;
 }

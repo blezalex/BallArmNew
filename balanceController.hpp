@@ -25,25 +25,22 @@ public:
 		float p_input = constrain(raw_input, -1, 1);
 
 		switch (settings_->balance_settings.expo_type) {
-		case 0: return applyExpoReal(p_input, settings_->balance_settings.balance_expo);
-		case 1: return applyExpoNatural(p_input, settings_->balance_settings.balance_expo);
-		case 2: return applyExpoPoly(p_input, settings_->balance_settings.balance_expo);
+		case 1: return applyExpoReal(p_input, settings_->balance_settings.balance_expo);
+		case 2: return applyExpoNatural(p_input, settings_->balance_settings.balance_expo);
+		case 3: return applyExpoPoly(p_input, settings_->balance_settings.balance_expo);
 		default: return p_input;
 		}
 	}
 
 	float calcRatePid(float rateRequest,  float rate) {
-		rateRequest = constrain(rateRequest, -settings_->misc.speed_input_mixin, settings_->misc.speed_input_mixin);
+		rateRequest = rateRequest * settings_->balance_settings.angle_to_rate_mult * 400;
 
-		float error = rateRequest * 400 - rate;
+		float error = rateRequest - rate;
 		float d_term  = error - prev_error_;
 		d_term = constrain(d_term, -settings_->balance_settings.balance_d_param_limiter, settings_->balance_settings.balance_d_param_limiter);
 		prev_error_ = error;
 		d_term = d_lpf_.compute(d_term);
 		float result = rate_pid_.compute(error, d_term);
-
-		// shared with balance_settings.max_update_limiter ConstrainedOut
-		// result = constrain(result, -settings_->balance_settings.max_update_limiter, settings_->balance_settings.max_update_limiter);
 		return result;
 	}
 

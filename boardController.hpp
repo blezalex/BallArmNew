@@ -70,9 +70,7 @@ class BoardController : public UpdateListener {
         motor3_(&out[2], &settings->balance_settings),
         status_led_(status_led),
         beeper_(beeper),
-        green_led_(green_led),
-        fwd_lpf_(&settings->misc.throttle_rc),
-        right_lpf_(&settings->misc.throttle_rc) {}
+        green_led_(green_led) {}
 
   float mapRcInput(uint16_t input) {
     if (input < MIN_MOTOR_CMD || input > MAX_MOTOR_CMD) {
@@ -103,9 +101,6 @@ class BoardController : public UpdateListener {
         motor2_.reset();
         motor3_.reset();
 
-        fwd_lpf_.reset();
-        right_lpf_.reset();
-
         pitch_balancer_.reset();
         roll_balancer_.reset();
         yaw_pid_controler_.reset();
@@ -115,11 +110,9 @@ class BoardController : public UpdateListener {
       case State::Starting:
       case State::Running:
 
-        float fwdTargetAngle = mapRcInput(rxVals[1]) * 5;
-        float rightTargetAngle = mapRcInput(rxVals[0]) * 5;
-
-        // float yaw_target = mapRcInput(rxVals[3]) * 1500;
-        float yaw_target = 0;
+        float fwdTargetAngle = 0; // mapRcInput(rxVals[1]) * 5;
+        float rightTargetAngle = 0; // mapRcInput(rxVals[0]) * 5;
+        float yaw_target = 0; //  mapRcInput(rxVals[3]) * 1500;
         float yaw = yaw_pid_controler_.compute(update.gyro[2] - yaw_target) *
                     state_.start_progress();
 
@@ -137,18 +130,8 @@ class BoardController : public UpdateListener {
                                          -update.gyro[0]);
         }
 
-        fwd *= settings_->balance_settings.usart_control_scaling;
-        right *= settings_->balance_settings.usart_control_scaling;
-
-#ifdef SPEED_CTRL
-        if (current_state != State::Starting) {
-          fwd += fwd_lpf_.getVal();
-          right += right_lpf_.getVal();
-
-          fwd_lpf_.compute(fwd);
-          right_lpf_.compute(right);
-        }
-#endif
+        fwd *= settings_->balance_settings.pid_to_current_mult;
+        right *= settings_->balance_settings.pid_to_current_mult;
 
 #ifdef MOTOR_90_DEG
       right = -right;
@@ -191,10 +174,6 @@ class BoardController : public UpdateListener {
   GenericOut& beeper_;
 
   GenericOut& green_led_;
-
-  // These lpfs compensate for body inertia.
-  BiQuadLpf fwd_lpf_;
-  BiQuadLpf right_lpf_;
 
   int vesc_update_cycle_ctr_ = 0;
 };

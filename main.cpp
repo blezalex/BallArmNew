@@ -267,10 +267,6 @@ int main(void) {
   Guard *guards[] = {&angle_guard, &foot_pad_guard};
   int guards_count = sizeof(guards) / sizeof(Guard *);
 
-  LPF erpm_lpf(&cfg.misc.erpm_rc);
-  LPF v_in_lpf(&cfg.misc.volt_rc);
-  LPF duty_lpf(&cfg.misc.duty_rc);
-
   static BoardController main_ctrl(&cfg, imu, status_led, beeper, guards,
                                    guards_count, green_led);
 
@@ -384,8 +380,6 @@ int main(void) {
         stats.motor_current = main_ctrl.out[0].mc_values_.avg_motor_current;
         stats.distance_traveled = main_ctrl.out[1].mc_values_.avg_motor_current;
         stats.speed = main_ctrl.out[2].mc_values_.avg_motor_current;
-        // stats.motor_duty = vesc.mc_values_.duty_now;
-        // stats.esc_temp = vesc.mc_values_.temp_mos_filtered;
 
         stats.motor_temp = CAN_GetReceiveErrorCounter(CAN1) +
                            CAN_GetLSBTransmitErrorCounter(CAN1);
