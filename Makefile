@@ -59,5 +59,5 @@ clean:
 program: ${BUILD_DIR}/BalancingController.elf
 	"C:/CooCox/CoIDE/bin\coflash.exe" program STM32F103CB $< --adapter-name=ST-Link --port=SWD --adapter-clk=2000000 --erase=affected --reset=SYSRESETREQ --driver="C:/CooCox/CoIDE/flash/STM32F10x_MD_128.elf" --verify=false 
 
-
-
+program_openocd:
+	openocd -f interface/stlink.cfg -f target/stm32f1x.cfg -c "init;targets;halt;flash write_image erase ${BUILD_DIR}/BalancingController.elf;verify_image ${BUILD_DIR}/BalancingController.elf;reset;shutdown"
