@@ -8,8 +8,9 @@
 
 class BalanceController  {
 public:
-	BalanceController(const Config* settings, Config_PidConfig* pid_config) :
-		settings_(settings), d_lpf_(&settings->balance_settings.balance_d_param_lpf_rc), angle_pid_(pid_config), rate_pid_(&settings->rate_pid) {
+	BalanceController(const Config* settings, Config_PidConfig* angle_pid_config, Config_PidConfig* rate_pid_config) :
+		settings_(settings), d_lpf_(&settings->balance_settings.balance_d_param_lpf_rc), 
+		angle_pid_(angle_pid_config), rate_pid_(rate_pid_config) {
 		reset();
 	}
 

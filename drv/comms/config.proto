@@ -21,6 +21,10 @@ message Config {
   
   required PidConfig rate_pid = 9;
 
+  required PidConfig rate2_pid = 14;
+
+  required PidConfig angle2_pid = 15;
+
   required PidConfig yaw_pid = 8;
 
   message FootPadSettings {

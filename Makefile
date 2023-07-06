@@ -35,11 +35,11 @@ ${BUILD_DIR}/descriptor.pb.bin: drv/comms/config.proto
 	$(PROTOC) $< --descriptor_set_out=$@
 
 ${BUILD_DIR}/descriptor.pb.bin.deflate: ${BUILD_DIR}/descriptor.pb.bin
-	python -c "import zlib,sys; sys.stdout.buffer.write(zlib.compress(sys.stdin.buffer.read(),9))" < $< > $@
+	python3 -c "import zlib,sys; sys.stdout.buffer.write(zlib.compress(sys.stdin.buffer.read(),9))" < $< > $@
 
 ${BUILD_DIR}/descriptor.pb.deflate.o: ${BUILD_DIR}/descriptor.pb.bin.deflate
-# arm-none-eabi-ld.exe -r -b binary $< -o $@
-	arm-none-eabi-objcopy.exe -I binary -B arm -O 'elf32-littlearm' $< $@ --rename-section=.data=.rodata
+# arm-none-eabi-ld -r -b binary $< -o $@
+	arm-none-eabi-objcopy -I binary -B arm -O 'elf32-littlearm' $< $@ --rename-section=.data=.rodata
 
 # The final build step.
 ${BUILD_DIR}/BalancingController.elf: $(OBJS) link.ld ${BUILD_DIR}/descriptor.pb.deflate.o
