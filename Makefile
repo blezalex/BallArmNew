@@ -8,7 +8,7 @@ BUILD_DIR := build
 STM32_KIT=$(wildcard stm_lib/src/*.c) $(wildcard syscalls/*.c) $(wildcard cmsis_boot/*.c) $(wildcard cmsis_boot/*/*.c)
 
 HDRS := $(wildcard *.h) $(wildcard *.hpp) $(wildcard */*.h) $(wildcard */*.hpp) $(wildcard */*/*.h) $(wildcard */*/*.hpp) $(wildcard */*/*/*.h) $(wildcard */*/*/*.hpp) drv/comms/protocol.pb.h drv/comms/config.pb.h
-SRCS := $(wildcard *.cpp) $(wildcard io/*.cpp) $(wildcard imu/*.cpp) $(wildcard guards/*.cpp) $(wildcard drv/vesc/*.cpp) $(wildcard drv/comms/*.cpp) $(wildcard drv/settings/*.cpp) $(wildcard drv/mpu6050/*.cpp) $(wildcard drv/led/*.cpp) ${STM32_KIT} ${NANOPB_CORE} drv/comms/protocol.pb.c drv/comms/config.pb.c
+SRCS := $(wildcard *.cpp) $(wildcard io/*.cpp) $(wildcard imu/*.cpp) $(wildcard guards/*.cpp) $(wildcard drv/vesc/*.cpp) $(wildcard drv/comms/*.cpp) $(wildcard drv/settings/*.cpp) $(wildcard drv/mpu6050/*.cpp) ${STM32_KIT} ${NANOPB_CORE} drv/comms/protocol.pb.c drv/comms/config.pb.c
 INC:=drv cmsis_boot drv/vesc drv/comms stm_lib/inc cmsis . $(NANOPB_DIR)
 INC_PARAMS=$(INC:%=-I%)
 
@@ -21,14 +21,23 @@ CPPFLAGS = $(CFLAGS) -std=gnu++11
 
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 
+ifeq ($(OS),Windows_NT)
+    MKDIR = if not exist "$(DIR)" mkdir "$(DIR)"
+else
+    MKDIR = mkdir -p "$(DIR)"
+endif
+
+create-dir:
+	$(MKDIR)
+
 # Build step for C source
 ${BUILD_DIR}/%.c.o : %.c ${HDRS}
-	mkdir -p $(dir $@)
+	$(MAKE) create-dir DIR=$(dir $@)
 	${CC} $(CFLAGS) ${INC_PARAMS} -c $< -o $@
 
 # Build step for C++ source
 $(BUILD_DIR)/%.cpp.o: %.cpp ${HDRS}
-	mkdir -p $(dir $@)
+	$(MAKE) create-dir DIR=$(dir $@)
 	$(CXX) $(CPPFLAGS) $(INC_PARAMS) -c $< -o $@
 
 ${BUILD_DIR}/descriptor.pb.bin: drv/comms/config.proto

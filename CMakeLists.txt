@@ -89,7 +89,6 @@ file(GLOB DRV_VESC_CPP  "drv/vesc/*.cpp")
 file(GLOB DRV_COMMS_CPP "drv/comms/*.cpp")
 file(GLOB DRV_SETTINGS_CPP "drv/settings/*.cpp")
 file(GLOB DRV_MPU_CPP   "drv/mpu6050/*.cpp")
-file(GLOB DRV_LED_CPP   "drv/led/*.cpp")
 
 file(GLOB STM_LIB_C     "stm_lib/src/*.c")
 file(GLOB SYSCALLS_C    "syscalls/*.c")
@@ -105,7 +104,6 @@ set(SRCS
     ${DRV_COMMS_CPP}
     ${DRV_SETTINGS_CPP}
     ${DRV_MPU_CPP}
-    ${DRV_LED_CPP}
     ${STM_LIB_C}
     ${SYSCALLS_C}
     ${CMSIS_BOOT_C}
