@@ -1,4 +1,6 @@
 
+#TODO must pip install --upgrade protobuf grpcio-tools
+
 include ../nanopb/extra/nanopb.mk
 
 BUILD_DIR := build

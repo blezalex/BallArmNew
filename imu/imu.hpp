@@ -13,26 +13,18 @@
 class IMU {
 public:
 	IMU(const Config* config)
-#ifndef MADGWICK
-	: accCompensatedVector_{ 0, 0, ACC_1G }, config_(config) {
-#else
 		:mw_(&config->balance_settings.imu_beta), config_(config) {
 		mw_.begin(1000);
-#endif
 	}
 	void compute(const MpuUpdate& update, bool init = false);
 
 	volatile float angles[2];
+	volatile float rates[3];
 
 	MpuUpdate last_update_;
 
 private:
-
-#ifdef MADGWICK
 	Madgwick mw_;
-#else
-	float accCompensatedVector_[3];
-#endif
 
 	const Config* config_;
 	DISALLOW_COPY_AND_ASSIGN(IMU);

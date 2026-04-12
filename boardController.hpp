@@ -18,8 +18,6 @@
 #include "stm_lib/inc/stm32f10x_tim.h"
 
 
-#define MOTOR_90_DEG
-
 class ConstrainedOut {
  public:
   ConstrainedOut(VescComm* motor_out, Config_BalancingConfig* balance_settings)
@@ -124,26 +122,18 @@ class BoardController : public UpdateListener {
               imu_.angles[0] - rightTargetAngle, -update.gyro[0],
               state_.start_progress());
         } else {
-          fwd = pitch_balancer_.compute(imu_.angles[1] - fwdTargetAngle,
+          fwd = pitch_balancer_.compute(fwdTargetAngle - imu_.angles[1],
                                         update.gyro[1]);
-          right = roll_balancer_.compute(imu_.angles[0] - rightTargetAngle,
-                                         -update.gyro[0]);
+          right = roll_balancer_.compute(rightTargetAngle - imu_.angles[0],
+                                         update.gyro[0]);
         }
 
         fwd *= settings_->balance_settings.pid_to_current_mult;
         right *= settings_->balance_settings.pid_to_current_mult;
 
-#ifdef MOTOR_90_DEG
-      float speed1 = yaw + right;
-      float speed2 =
-          yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
-      float speed3 =
-          yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
-#else
 			float speed1 = yaw + right;
 			float speed2 = yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
 		  float speed3 = yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
-#endif
 
         motor1_.set(speed1);
         motor2_.set(speed2);
