@@ -111,29 +111,27 @@ class BoardController : public UpdateListener {
         float fwdTargetAngle = 0; // mapRcInput(rxVals[1]) * 5;
         float rightTargetAngle = 0; // mapRcInput(rxVals[0]) * 5;
         float yaw_target = 0; //  mapRcInput(rxVals[3]) * 1500;
-        float yaw = yaw_pid_controler_.compute(update.gyro[2] - yaw_target) *
+        float yaw = yaw_pid_controler_.compute(yaw_target - update.gyro[2]) *
                     state_.start_progress();
 
+        const float fwd_error = fwdTargetAngle - imu_.angles[1];
+        const float right_error = rightTargetAngle - imu_.angles[0];
         if (current_state == State::Starting) {
-          fwd = pitch_balancer_.computeStarting(imu_.angles[1] - fwdTargetAngle,
-                                                update.gyro[1],
+          fwd = pitch_balancer_.computeStarting(fwd_error, update.gyro[1],
                                                 state_.start_progress());
-          right = roll_balancer_.computeStarting(
-              imu_.angles[0] - rightTargetAngle, -update.gyro[0],
-              state_.start_progress());
+          right = roll_balancer_.computeStarting(right_error, update.gyro[0],
+                                                 state_.start_progress());
         } else {
-          fwd = pitch_balancer_.compute(fwdTargetAngle - imu_.angles[1],
-                                        update.gyro[1]);
-          right = roll_balancer_.compute(rightTargetAngle - imu_.angles[0],
-                                         update.gyro[0]);
+          fwd = pitch_balancer_.compute(fwd_error, update.gyro[1]);
+          right = roll_balancer_.compute(right_error, update.gyro[0]);
         }
 
         fwd *= settings_->balance_settings.pid_to_current_mult;
         right *= settings_->balance_settings.pid_to_current_mult;
 
-			float speed1 = yaw + right;
-			float speed2 = yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
-		  float speed3 = yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+        float speed1 = yaw + right;
+        float speed2 = yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
+        float speed3 = yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
 
         motor1_.set(speed1);
         motor2_.set(speed2);

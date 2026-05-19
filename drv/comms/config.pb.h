@@ -79,6 +79,16 @@ typedef struct _Config {
     Config_PidConfig pitch_angle_pid;
 } Config;
 
+typedef struct _Stats {
+    float batt_voltage;
+    float batt_current;
+    float motor_current;
+    float speed;
+    float drive_angle;
+    float stear_angle;
+    int32_t can_errors;
+} Stats;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,11 +100,13 @@ extern "C" {
 #define Config_PidConfig_init_default            {0.0f, 0.0f, 0.0f, 1.0f, false, 0.0f}
 #define Config_FootPadSettings_init_default      {0.05f, 3300, 2000, 100}
 #define Config_BalancingConfig_init_default      {0.15f, 15.0f, 15, 40, 14, 300, 1.0f, 300, 0.15f, 2u, false, 0.02f, false, 0, false, 0.0f, false, 0.0f}
+#define Stats_init_default                       {0, 0, 0, 0, 0, 0, 0}
 #define Config_init_zero                         {false, Config_Callibration_init_zero, Config_PidConfig_init_zero, Config_FootPadSettings_init_zero, Config_BalancingConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero}
 #define Config_Callibration_init_zero            {0, 0, 0}
 #define Config_PidConfig_init_zero               {0, 0, 0, 0, false, 0}
 #define Config_FootPadSettings_init_zero         {0, 0, 0, 0}
 #define Config_BalancingConfig_init_zero         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, false, 0, false, 0, false, 0}
+#define Stats_init_zero                          {0, 0, 0, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define Config_Callibration_x_offset_tag         4
@@ -131,6 +143,13 @@ extern "C" {
 #define Config_roll_rate_pid_tag                 9
 #define Config_pitch_rate_pid_tag                14
 #define Config_pitch_angle_pid_tag               15
+#define Stats_batt_voltage_tag                   1
+#define Stats_batt_current_tag                   2
+#define Stats_motor_current_tag                  3
+#define Stats_speed_tag                          5
+#define Stats_drive_angle_tag                    7
+#define Stats_stear_angle_tag                    8
+#define Stats_can_errors_tag                     9
 
 /* Struct field encoding specification for nanopb */
 #define Config_FIELDLIST(X, a) \
@@ -195,11 +214,23 @@ X(a, STATIC,   OPTIONAL, FLOAT,    angle_to_rate_mult,  14)
 #define Config_BalancingConfig_CALLBACK NULL
 #define Config_BalancingConfig_DEFAULT (const pb_byte_t*)"\x0d\x9a\x99\x19\x3e\x15\x00\x00\x70\x41\x18\x0f\x20\x28\x28\x0e\x30\xac\x02\x3d\x00\x00\x80\x3f\x40\xac\x02\x4d\x9a\x99\x19\x3e\x50\x02\x5d\x0a\xd7\xa3\x3c\x60\x00\x6d\x00\x00\x00\x00\x75\x00\x00\x00\x00\x00"
 
+#define Stats_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, FLOAT,    batt_voltage,      1) \
+X(a, STATIC,   REQUIRED, FLOAT,    batt_current,      2) \
+X(a, STATIC,   REQUIRED, FLOAT,    motor_current,     3) \
+X(a, STATIC,   REQUIRED, FLOAT,    speed,             5) \
+X(a, STATIC,   REQUIRED, FLOAT,    drive_angle,       7) \
+X(a, STATIC,   REQUIRED, FLOAT,    stear_angle,       8) \
+X(a, STATIC,   REQUIRED, INT32,    can_errors,        9)
+#define Stats_CALLBACK NULL
+#define Stats_DEFAULT NULL
+
 extern const pb_msgdesc_t Config_msg;
 extern const pb_msgdesc_t Config_Callibration_msg;
 extern const pb_msgdesc_t Config_PidConfig_msg;
 extern const pb_msgdesc_t Config_FootPadSettings_msg;
 extern const pb_msgdesc_t Config_BalancingConfig_msg;
+extern const pb_msgdesc_t Stats_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define Config_fields &Config_msg
@@ -207,6 +238,7 @@ extern const pb_msgdesc_t Config_BalancingConfig_msg;
 #define Config_PidConfig_fields &Config_PidConfig_msg
 #define Config_FootPadSettings_fields &Config_FootPadSettings_msg
 #define Config_BalancingConfig_fields &Config_BalancingConfig_msg
+#define Stats_fields &Stats_msg
 
 /* Maximum encoded size of messages (where known) */
 #define Config_BalancingConfig_size              107
@@ -215,6 +247,7 @@ extern const pb_msgdesc_t Config_BalancingConfig_msg;
 #define Config_PidConfig_size                    25
 #define Config_size                              301
 #define DRV_COMMS_CONFIG_PB_H_MAX_SIZE           Config_size
+#define Stats_size                               41
 
 #ifdef __cplusplus
 } /* extern "C" */

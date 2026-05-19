@@ -369,19 +369,9 @@ int main(void) {
         Stats stats = Stats_init_default;
         stats.drive_angle = imu.angles[ANGLE_DRIVE];
         stats.stear_angle = imu.angles[ANGLE_STEER];
-        stats.pad_pressure1 = main_ctrl.right;
-        stats.pad_pressure1 = main_ctrl.fwd;
-        stats.batt_current = main_ctrl.motor1_.get();
-        stats.batt_voltage = main_ctrl.motor2_.get();
-        stats.batt_current = main_ctrl.out[0].mc_values_.avg_input_current +
-                             main_ctrl.out[1].mc_values_.avg_input_current +
-                             main_ctrl.out[2].mc_values_.avg_input_current;
-        stats.batt_voltage = main_ctrl.out[0].mc_values_.v_in;
-        stats.motor_current = main_ctrl.out[0].mc_values_.avg_motor_current;
-        stats.distance_traveled = main_ctrl.out[1].mc_values_.avg_motor_current;
-        stats.speed = main_ctrl.out[2].mc_values_.avg_motor_current;
 
-        stats.motor_temp = CAN_GetReceiveErrorCounter(CAN1) +
+
+        stats.can_errors = CAN_GetReceiveErrorCounter(CAN1) +
                            CAN_GetLSBTransmitErrorCounter(CAN1);
 
         int16_t data_len =

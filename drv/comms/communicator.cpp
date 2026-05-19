@@ -23,8 +23,8 @@
 			crc32 = CRC_CalcCRC(*(uint32_t*)last_block);
 		}
 
-		comms_->Send(header, kHeaderSize);
-    	comms_->SendWithWait(data, data_len);
+		comms_->SendWithWait(header, kHeaderSize);
+		comms_->SendWithWait(data, data_len);
 		comms_->SendWithWait((uint8_t*)&crc32, kSuffixSize);
 	}
 
@@ -32,11 +32,13 @@
 		uint8_t header[kHeaderSize] = { 0 };
 		header[0] = msg_id;
 		header[1] = kMetadataSize;
+		header[2] = 0;
+		header[3] = 0;
 
 		CRC_ResetDR();
 		uint32_t crc32 = CRC_CalcCRC(*(uint32_t*)header);
-		comms_->Send(header, kHeaderSize);
-		comms_->Send((uint8_t*)&crc32, kSuffixSize);
+		comms_->SendWithWait(header, kHeaderSize);
+		comms_->SendWithWait((uint8_t*)&crc32, kSuffixSize);
 	}
 
   int Communicator::update() {

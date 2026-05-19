@@ -1,12 +1,15 @@
 #include "vesc.hpp"
-#include <string.h>
-#include "crc.h"
 
+#include <string.h>
+
+#include <cstdint>
+
+#include "crc.h"
 #include "stm_lib/inc/stm32f10x_can.h"
 
 VescComm* VescComm::vescs_[VescComm::kNumCanVescs];
 
-void VescComm::sendRequest(const uint8_t *payload, int payload_len) {
+void VescCommBase::sendRequest(const uint8_t *payload, int payload_len) {
   uint16_t crc_payload = crc16(payload, payload_len);
 
   if (payload_len <= 256) {
@@ -40,6 +43,8 @@ void VescComm::requestStats() {
 }
 
 uint8_t comm_can_set_current(uint8_t controller_id, float current);
+uint8_t comm_can_set_current_brake(uint8_t controller_id, float current);
+uint8_t comm_can_set_duty(uint8_t controller_id, float duty);
 
 
 void VescComm::setCurrent(float current) {
@@ -48,14 +53,30 @@ void VescComm::setCurrent(float current) {
     return;
   }
 
-
   uint8_t request[] = {(uint8_t)COMM_PACKET_ID::COMM_SET_CURRENT, 0, 0, 0, 0};
   int32_t send_index = 1;
   buffer_append_float32(request, current, 1000.0, &send_index);
   sendRequest(request, sizeof(request));
 }
 
+void VescComm::setDuty(float duty) {
+  if (serial_ == nullptr) {
+    comm_can_set_duty(can_id_, duty);
+    return;
+  }
+
+  uint8_t request[] = {(uint8_t)COMM_PACKET_ID::COMM_SET_DUTY, 0, 0, 0, 0};
+  int32_t send_index = 1;
+  buffer_append_float32(request, duty, 100000.0, &send_index);
+  sendRequest(request, sizeof(request));
+}
+
 void VescComm::setCurrentBrake(float current) {
+  if (serial_ == nullptr) {
+    comm_can_set_current_brake(can_id_, current);
+    return;
+  }
+
   uint8_t request[] = {(uint8_t)COMM_PACKET_ID::COMM_SET_CURRENT_BRAKE, 0, 0, 0,
                        0};
   int32_t send_index = 1;
@@ -105,6 +126,28 @@ static float buffer_get_float16(const uint8_t *buffer, float scale,
 static float buffer_get_float32(const uint8_t *buffer, float scale,
                                 int32_t *index) {
   return (float)buffer_get_int32(buffer, index) / scale;
+}
+
+void buffer_append_int16(uint8_t *buffer, int16_t number, int32_t *index) {
+  buffer[(*index)++] = number >> 8;
+  buffer[(*index)++] = number;
+}
+
+void buffer_append_uint16(uint8_t *buffer, uint16_t number, int32_t *index) {
+  buffer[(*index)++] = number >> 8;
+  buffer[(*index)++] = number;
+}
+
+void buffer_append_uint32(uint8_t *buffer, uint32_t number, int32_t *index) {
+  buffer[(*index)++] = number >> 24;
+  buffer[(*index)++] = number >> 16;
+  buffer[(*index)++] = number >> 8;
+  buffer[(*index)++] = number;
+}
+
+void buffer_append_float16(uint8_t *buffer, float number, float scale,
+                           int32_t *index) {
+  buffer_append_int16(buffer, (int16_t)(number * scale), index);
 }
 
 int VescComm::update() {
@@ -171,7 +214,6 @@ int VescComm::update() {
 
   return 0;
 }
-
 
 // CAN commands
 typedef enum {
@@ -257,6 +299,24 @@ uint8_t comm_can_set_current(uint8_t controller_id, float current) {
       send_index, true);
 }
 
+uint8_t comm_can_set_current_brake(uint8_t controller_id, float current) {
+  int32_t send_index = 0;
+  uint8_t buffer[4];
+  buffer_append_int32(buffer, (int32_t)(current * 1000.0), &send_index);
+  return comm_can_transmit_eid_replace(
+      controller_id | ((uint32_t)CAN_PACKET_SET_CURRENT_BRAKE << 8), buffer,
+      send_index, true);
+}
+
+uint8_t comm_can_set_duty(uint8_t controller_id, float duty) {
+  int32_t send_index = 0;
+  uint8_t buffer[4];
+  buffer_append_int32(buffer, (int32_t)(duty * 100000.0), &send_index);
+  return comm_can_transmit_eid_replace(
+      controller_id | ((uint32_t)CAN_PACKET_SET_DUTY << 8), buffer, send_index,
+      true);
+}
+
 void VescComm::updateCan() {
   if (CAN_MessagePending(CAN1, CAN_FIFO0) == 0) {
     return;
@@ -319,4 +379,143 @@ void VescComm::processCanMessage(uint32_t ext_id, const uint8_t *data8) {
       mc_values_.v_in = (float)buffer_get_int16(data8, &ind) / 1e1;
       break;
   }
+}
+
+uint16_t last_uart_data_time_ = 0;
+uint16_t buffer_pos_ = 0;
+int VescServer::update() {
+  if (!serial_->HasData()) return 0;
+
+  uint16_t time = millis();
+  if ((uint16_t)(time - last_uart_data_time_) > kMsgTimeoutMs) {
+    buffer_pos_ = 0;
+  }
+
+  last_uart_data_time_ = time;
+
+  int32_t received_bytes =
+  serial_->Read(rx_data_ + buffer_pos_, sizeof(rx_data_) - buffer_pos_);
+  buffer_pos_ += received_bytes;
+  if (buffer_pos_ > kHeaderSize) {
+    if (buffer_pos_ >= sizeof(rx_data_)) {
+      buffer_pos_ = 0;  // too long/invalid
+    }
+
+    if (buffer_pos_ >=
+        actual_header_size() + expected_msg_len() + kFooterSize) {
+      uint16_t crc_payload =
+          crc16(rx_data_ + actual_header_size(), expected_msg_len());
+
+      int footer_start_idx = actual_header_size() + expected_msg_len();
+
+      if (crc_payload >> 8 != rx_data_[footer_start_idx] ||
+          crc_payload & 0xFF != rx_data_[footer_start_idx + 1]) {
+        buffer_pos_ = 0;
+        return -1;  // Bad CRC
+      }
+
+      int msg_id = rx_data_[actual_header_size()];
+      int32_t idx = actual_header_size() + 1;
+
+      int bytes_to_move = buffer_pos_ - (footer_start_idx + kFooterSize);
+      if (bytes_to_move > 0) {
+        memmove(rx_data_, rx_data_ + footer_start_idx + kFooterSize,
+                bytes_to_move);
+      }
+      buffer_pos_ = bytes_to_move;
+
+      return msg_id;
+    }
+  }
+
+  return 0;
+}
+
+void VescServer::sendStatus(const mc_values &values, uint8_t packet_id) {
+  int32_t ind = 0;
+  uint8_t *send_buffer = stratch_;
+  send_buffer[ind++] = packet_id;
+
+  uint32_t mask = 0xFFFFFFFF;
+  if (mask & ((uint32_t)1 << 0)) {
+    buffer_append_float16(send_buffer, values.temp_mos_filtered, 1e1, &ind);
+  }
+  if (mask & ((uint32_t)1 << 1)) {
+    buffer_append_float16(send_buffer, values.temp_motor_filtered, 1e1, &ind);
+  }
+  if (mask & ((uint32_t)1 << 2)) {
+    buffer_append_float32(send_buffer, values.avg_motor_current, 1e2, &ind);
+  }
+  if (mask & ((uint32_t)1 << 3)) {
+    buffer_append_float32(send_buffer, values.avg_input_current, 1e2, &ind);
+  }
+  if (mask & ((uint32_t)1 << 4)) {
+    // I current.
+    buffer_append_float32(send_buffer, 0, 1e2, &ind);
+  }
+  if (mask & ((uint32_t)1 << 5)) {
+    // Q current.
+    buffer_append_float32(send_buffer, 0, 1e2, &ind);
+  }
+  if (mask & ((uint32_t)1 << 6)) {
+    buffer_append_float16(send_buffer, values.duty_now, 1e3, &ind);
+  }
+  if (mask & ((uint32_t)1 << 7)) {
+    buffer_append_float32(send_buffer, values.rpm, 1e0, &ind);
+  }
+  if (mask & ((uint32_t)1 << 8)) {
+    buffer_append_float16(send_buffer, values.v_in, 1e1, &ind);
+  }
+  if (mask & ((uint32_t)1 << 9)) {
+    buffer_append_float32(send_buffer, values.amp_hours, 1e4, &ind);
+  }
+  if (mask & ((uint32_t)1 << 10)) {
+    buffer_append_float32(send_buffer, values.amp_hours_charged, 1e4, &ind);
+  }
+  if (mask & ((uint32_t)1 << 11)) {
+    // Watt hours used.
+    buffer_append_float32(send_buffer, 0, 1e4, &ind);
+  }
+  if (mask & ((uint32_t)1 << 12)) {
+    // Watt hours charged.
+    buffer_append_float32(send_buffer, 0, 1e4, &ind);
+  }
+  if (mask & ((uint32_t)1 << 13)) {
+    buffer_append_int32(send_buffer, values.tachometer, &ind);
+  }
+  if (mask & ((uint32_t)1 << 14)) {
+    buffer_append_int32(send_buffer, values.tachometer_abs, &ind);
+  }
+  if (mask & ((uint32_t)1 << 15)) {
+    // Fault code.
+    send_buffer[ind++] = 0;
+  }
+  if (mask & ((uint32_t)1 << 16)) {
+    // PID pos
+    buffer_append_float32(send_buffer, 0, 1e6, &ind);
+  }
+  if (mask & ((uint32_t)1 << 17)) {
+    uint8_t current_controller_id = 0;
+    send_buffer[ind++] = current_controller_id;
+  }
+  if (mask & ((uint32_t)1 << 18)) {
+    // NTC_TEMP_MOS1-3
+    buffer_append_float16(send_buffer, 0, 1e1, &ind);
+    buffer_append_float16(send_buffer, 0, 1e1, &ind);
+    buffer_append_float16(send_buffer, 0, 1e1, &ind);
+  }
+  if (mask & ((uint32_t)1 << 19)) {
+    // v_d avg
+    buffer_append_float32(send_buffer, 0, 1e3, &ind);
+  }
+  if (mask & ((uint32_t)1 << 20)) {
+    // v_q avg
+    buffer_append_float32(send_buffer, 0, 1e3, &ind);
+  }
+  if (mask & ((uint32_t)1 << 21)) {
+    uint8_t status = 0;
+    // timeout, killswitch.
+    send_buffer[ind++] = status;
+  }
+  sendRequest(send_buffer, ind);
 }
