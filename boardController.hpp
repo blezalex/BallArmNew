@@ -2,6 +2,7 @@
 #include <math.h>
 
 #include <limits>
+#include <tuple>
 
 #include "cmsis_boot/stm32f10x.h"
 #include "drv/vesc/vesc.hpp"
@@ -16,7 +17,6 @@
 #include "stm_lib/inc/stm32f10x_gpio.h"
 #include "stm_lib/inc/stm32f10x_rcc.h"
 #include "stm_lib/inc/stm32f10x_tim.h"
-
 
 class ConstrainedOut {
  public:
@@ -36,6 +36,8 @@ class ConstrainedOut {
 
     motor_out_->setCurrent(new_out);
   }
+
+  void setDuty(float value) { motor_out_->setDuty(value); }
 
   float get() { return motor_out_lpf_.getVal(); }
 
@@ -78,6 +80,8 @@ class BoardController : public UpdateListener {
     return fmap(input, MIN_MOTOR_CMD, MAX_MOTOR_CMD, -1, 1);
   }
 
+  bool NoCmd(float cmd) { return fabsf(cmd) < 0.01; }
+
   // Main control loop. Runs at 1000hz Must finish in less than 1ms otherwise
   // controller will freeze.
   void processUpdate(const MpuUpdate& update) {
@@ -86,9 +90,21 @@ class BoardController : public UpdateListener {
 
     switch (current_state) {
       case State::Stopped:
-        motor1_.reset();
-        motor2_.reset();
-        motor3_.reset();
+        if (NoCmd(settings_->direct_cmd.fwd) &&
+            NoCmd(settings_->direct_cmd.right) &&
+            NoCmd(settings_->direct_cmd.yaw)) {
+          motor1_.reset();
+          motor2_.reset();
+          motor3_.reset();
+        } else {
+          auto [speed1, speed2, speed3] =
+              Mix(settings_->direct_cmd.right, settings_->direct_cmd.fwd,
+                  settings_->direct_cmd.yaw);
+
+          motor1_.setDuty(speed1);
+          motor2_.setDuty(speed2);
+          motor3_.setDuty(speed3);
+        }
 
         status_led_.setState(0);
         beeper_.setState(0);
@@ -129,9 +145,7 @@ class BoardController : public UpdateListener {
         fwd *= settings_->balance_settings.pid_to_current_mult;
         right *= settings_->balance_settings.pid_to_current_mult;
 
-        float speed1 = yaw + right;
-        float speed2 = yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
-        float speed3 = yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+        auto [speed1, speed2, speed3] = Mix(right, fwd, yaw);
 
         motor1_.set(speed1);
         motor2_.set(speed2);
@@ -139,6 +153,15 @@ class BoardController : public UpdateListener {
 
         break;
     }
+  }
+
+  std::tuple<float, float, float> Mix(float right, float fwd, float yaw) {
+    float speed1 = yaw + right;
+    float speed2 =
+        yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
+    float speed3 =
+        yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+    return {speed1, speed2, speed3};
   }
 
  public:

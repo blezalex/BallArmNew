@@ -19,7 +19,7 @@ CXX = arm-none-eabi-gcc
 
 ARCH = -mcpu=cortex-m3 -mthumb
 CFLAGS = ${ARCH} -Wall -ffunction-sections -g -O2 -flto -fno-builtin -c -DSTM32F103CB -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -D__ASSEMBLY__ -DSUPPORT_CPLUSPLUS # -fstack-usage
-CPPFLAGS = $(CFLAGS) -std=gnu++11
+CPPFLAGS = $(CFLAGS) -std=gnu++20
 
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 

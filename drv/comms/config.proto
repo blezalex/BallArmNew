@@ -78,6 +78,14 @@ message Config {
   }
 
   required BalancingConfig balance_settings = 4;
+
+  message DirectControl {
+    required float fwd = 1;
+    required float right = 2;
+    required float yaw = 3;
+  }
+
+  optional DirectControl direct_cmd = 5;
 }
 
 message Stats {

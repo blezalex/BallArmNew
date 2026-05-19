@@ -67,12 +67,20 @@ typedef struct _Config_BalancingConfig {
     float angle_to_rate_mult;
 } Config_BalancingConfig;
 
+typedef struct _Config_DirectControl {
+    float fwd;
+    float right;
+    float yaw;
+} Config_DirectControl;
+
 typedef struct _Config {
     bool has_callibration;
     Config_Callibration callibration;
     Config_PidConfig roll_angle_pid;
     Config_FootPadSettings foot_pad;
     Config_BalancingConfig balance_settings;
+    bool has_direct_cmd;
+    Config_DirectControl direct_cmd;
     Config_PidConfig yaw_pid;
     Config_PidConfig roll_rate_pid;
     Config_PidConfig pitch_rate_pid;
@@ -95,17 +103,19 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define Config_init_default                      {false, Config_Callibration_init_default, Config_PidConfig_init_default, Config_FootPadSettings_init_default, Config_BalancingConfig_init_default, Config_PidConfig_init_default, Config_PidConfig_init_default, Config_PidConfig_init_default, Config_PidConfig_init_default}
+#define Config_init_default                      {false, Config_Callibration_init_default, Config_PidConfig_init_default, Config_FootPadSettings_init_default, Config_BalancingConfig_init_default, false, Config_DirectControl_init_default, Config_PidConfig_init_default, Config_PidConfig_init_default, Config_PidConfig_init_default, Config_PidConfig_init_default}
 #define Config_Callibration_init_default         {0.0f, 0.0f, 0.0f}
 #define Config_PidConfig_init_default            {0.0f, 0.0f, 0.0f, 1.0f, false, 0.0f}
 #define Config_FootPadSettings_init_default      {0.05f, 3300, 2000, 100}
 #define Config_BalancingConfig_init_default      {0.15f, 15.0f, 15, 40, 14, 300, 1.0f, 300, 0.15f, 2u, false, 0.02f, false, 0, false, 0.0f, false, 0.0f}
+#define Config_DirectControl_init_default        {0, 0, 0}
 #define Stats_init_default                       {0, 0, 0, 0, 0, 0, 0}
-#define Config_init_zero                         {false, Config_Callibration_init_zero, Config_PidConfig_init_zero, Config_FootPadSettings_init_zero, Config_BalancingConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero}
+#define Config_init_zero                         {false, Config_Callibration_init_zero, Config_PidConfig_init_zero, Config_FootPadSettings_init_zero, Config_BalancingConfig_init_zero, false, Config_DirectControl_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero, Config_PidConfig_init_zero}
 #define Config_Callibration_init_zero            {0, 0, 0}
 #define Config_PidConfig_init_zero               {0, 0, 0, 0, false, 0}
 #define Config_FootPadSettings_init_zero         {0, 0, 0, 0}
 #define Config_BalancingConfig_init_zero         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, false, 0, false, 0, false, 0}
+#define Config_DirectControl_init_zero           {0, 0, 0}
 #define Stats_init_zero                          {0, 0, 0, 0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -135,10 +145,14 @@ extern "C" {
 #define Config_BalancingConfig_expo_type_tag     12
 #define Config_BalancingConfig_pid_to_current_mult_tag 13
 #define Config_BalancingConfig_angle_to_rate_mult_tag 14
+#define Config_DirectControl_fwd_tag             1
+#define Config_DirectControl_right_tag           2
+#define Config_DirectControl_yaw_tag             3
 #define Config_callibration_tag                  1
 #define Config_roll_angle_pid_tag                2
 #define Config_foot_pad_tag                      3
 #define Config_balance_settings_tag              4
+#define Config_direct_cmd_tag                    5
 #define Config_yaw_pid_tag                       8
 #define Config_roll_rate_pid_tag                 9
 #define Config_pitch_rate_pid_tag                14
@@ -157,6 +171,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  callibration,      1) \
 X(a, STATIC,   REQUIRED, MESSAGE,  roll_angle_pid,    2) \
 X(a, STATIC,   REQUIRED, MESSAGE,  foot_pad,          3) \
 X(a, STATIC,   REQUIRED, MESSAGE,  balance_settings,   4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  direct_cmd,        5) \
 X(a, STATIC,   REQUIRED, MESSAGE,  yaw_pid,           8) \
 X(a, STATIC,   REQUIRED, MESSAGE,  roll_rate_pid,     9) \
 X(a, STATIC,   REQUIRED, MESSAGE,  pitch_rate_pid,   14) \
@@ -167,6 +182,7 @@ X(a, STATIC,   REQUIRED, MESSAGE,  pitch_angle_pid,  15)
 #define Config_roll_angle_pid_MSGTYPE Config_PidConfig
 #define Config_foot_pad_MSGTYPE Config_FootPadSettings
 #define Config_balance_settings_MSGTYPE Config_BalancingConfig
+#define Config_direct_cmd_MSGTYPE Config_DirectControl
 #define Config_yaw_pid_MSGTYPE Config_PidConfig
 #define Config_roll_rate_pid_MSGTYPE Config_PidConfig
 #define Config_pitch_rate_pid_MSGTYPE Config_PidConfig
@@ -214,6 +230,13 @@ X(a, STATIC,   OPTIONAL, FLOAT,    angle_to_rate_mult,  14)
 #define Config_BalancingConfig_CALLBACK NULL
 #define Config_BalancingConfig_DEFAULT (const pb_byte_t*)"\x0d\x9a\x99\x19\x3e\x15\x00\x00\x70\x41\x18\x0f\x20\x28\x28\x0e\x30\xac\x02\x3d\x00\x00\x80\x3f\x40\xac\x02\x4d\x9a\x99\x19\x3e\x50\x02\x5d\x0a\xd7\xa3\x3c\x60\x00\x6d\x00\x00\x00\x00\x75\x00\x00\x00\x00\x00"
 
+#define Config_DirectControl_FIELDLIST(X, a) \
+X(a, STATIC,   REQUIRED, FLOAT,    fwd,               1) \
+X(a, STATIC,   REQUIRED, FLOAT,    right,             2) \
+X(a, STATIC,   REQUIRED, FLOAT,    yaw,               3)
+#define Config_DirectControl_CALLBACK NULL
+#define Config_DirectControl_DEFAULT NULL
+
 #define Stats_FIELDLIST(X, a) \
 X(a, STATIC,   REQUIRED, FLOAT,    batt_voltage,      1) \
 X(a, STATIC,   REQUIRED, FLOAT,    batt_current,      2) \
@@ -230,6 +253,7 @@ extern const pb_msgdesc_t Config_Callibration_msg;
 extern const pb_msgdesc_t Config_PidConfig_msg;
 extern const pb_msgdesc_t Config_FootPadSettings_msg;
 extern const pb_msgdesc_t Config_BalancingConfig_msg;
+extern const pb_msgdesc_t Config_DirectControl_msg;
 extern const pb_msgdesc_t Stats_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
@@ -238,14 +262,16 @@ extern const pb_msgdesc_t Stats_msg;
 #define Config_PidConfig_fields &Config_PidConfig_msg
 #define Config_FootPadSettings_fields &Config_FootPadSettings_msg
 #define Config_BalancingConfig_fields &Config_BalancingConfig_msg
+#define Config_DirectControl_fields &Config_DirectControl_msg
 #define Stats_fields &Stats_msg
 
 /* Maximum encoded size of messages (where known) */
 #define Config_BalancingConfig_size              107
 #define Config_Callibration_size                 15
+#define Config_DirectControl_size                15
 #define Config_FootPadSettings_size              38
 #define Config_PidConfig_size                    25
-#define Config_size                              301
+#define Config_size                              318
 #define DRV_COMMS_CONFIG_PB_H_MAX_SIZE           Config_size
 #define Stats_size                               41
 
