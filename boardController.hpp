@@ -99,7 +99,7 @@ class BoardController : public UpdateListener {
         } else {
           auto [speed1, speed2, speed3] =
               Mix(settings_->direct_cmd.right, settings_->direct_cmd.fwd,
-                  settings_->direct_cmd.yaw);
+                  settings_->direct_cmd.yaw, 1.0f);
 
           motor1_.setDuty(speed1);
           motor2_.setDuty(speed2);
@@ -145,8 +145,8 @@ class BoardController : public UpdateListener {
         fwd *= settings_->balance_settings.pid_to_current_mult;
         right *= settings_->balance_settings.pid_to_current_mult;
 
-        auto [speed1, speed2, speed3] = Mix(right, fwd, yaw);
-
+        auto [speed1, speed2, speed3] = Mix(
+            right, fwd, yaw, settings_->balance_settings.pid_to_current_mult);
         motor1_.set(speed1);
         motor2_.set(speed2);
         motor3_.set(speed3);
@@ -155,12 +155,32 @@ class BoardController : public UpdateListener {
     }
   }
 
-  std::tuple<float, float, float> Mix(float right, float fwd, float yaw) {
-    float speed1 = yaw + right;
-    float speed2 =
-        yaw + cos(deg_to_rad(120)) * right - sin(deg_to_rad(120)) * fwd;
-    float speed3 =
-        yaw + cos(deg_to_rad(120)) * right + sin(deg_to_rad(120)) * fwd;
+  constexpr float ApplyRotated(float angle_rad, float right, float fwd,
+                               float yaw) {
+    return yaw + cos(angle_rad) * fwd - sin(angle_rad) * right;
+  }
+
+  std::tuple<float, float, float> Mix(float right, float fwd, float yaw,
+                                      float max_output) {
+    constexpr float m1_angle = deg_to_rad(90);
+    constexpr float m2_angle = m1_angle + deg_to_rad(120);
+    constexpr float m3_angle = m2_angle + deg_to_rad(120);
+
+    float speed1 = ApplyRotated(m1_angle, right, fwd, yaw);
+    float speed2 = ApplyRotated(m2_angle, right, fwd, yaw);
+    float speed3 = ApplyRotated(m3_angle, right, fwd, yaw);
+
+    if (max_output > 0.0f) {
+      const float max_abs =
+          fmaxf(fabsf(speed1), fmaxf(fabsf(speed2), fabsf(speed3)));
+      if (max_abs > max_output) {
+        const float scale = max_output / max_abs;
+        speed1 *= scale;
+        speed2 *= scale;
+        speed3 *= scale;
+      }
+    }
+
     return {speed1, speed2, speed3};
   }
 
