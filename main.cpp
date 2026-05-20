@@ -294,15 +294,6 @@ int main(void) {
         case 3:
           debug[write_pos++] = (int8_t)(main_ctrl.fwd / 10);
           break;
-        case 4:
-          debug[write_pos++] = (int8_t)(main_ctrl.motor1_.get());
-          break;
-          // case 5:
-          //   debug[write_pos++] = (int8_t)(vesc.mc_values_.v_in);
-          //   break;
-          // case 6:
-          //   debug[write_pos++] = (int8_t)(vesc.mc_values_.avg_input_current);
-          //   break;
       }
 
       if (write_pos >= sizeof(debug)) write_pos = 0;
