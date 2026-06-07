@@ -110,14 +110,23 @@ void BoardController::processUpdate(const MpuUpdate& update) {
         right = roll_balancer_.compute(right_error, update.gyro[0]);
       }
 
-      fwd *= settings_->balance_settings.pid_to_current_mult;
-      right *= settings_->balance_settings.pid_to_current_mult;
+      const float out_scaling =
+          settings_->balance_settings.pid_to_current_mult;
+      
+      fwd *= out_scaling;
+      right *= out_scaling;
 
       auto [speed1, speed2, speed3] =
-          Mix(right, fwd, yaw, settings_->balance_settings.pid_to_current_mult);
-      motor1_.set(speed1);
-      motor2_.set(speed2);
-      motor3_.set(speed3);
+          Mix(right, fwd, yaw, out_scaling);
+      if (out_scaling > 1.0f) {
+        motor1_.set(speed1);
+        motor2_.set(speed2);
+        motor3_.set(speed3);
+      } else {
+        motor1_.setDuty(speed1);
+        motor2_.setDuty(speed2);
+        motor3_.setDuty(speed3);
+      }
 
       break;
   }

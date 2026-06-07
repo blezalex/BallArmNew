@@ -37,7 +37,10 @@ class ConstrainedOut {
     motor_out_->setCurrent(new_out);
   }
 
-  void setDuty(float value) { motor_out_->setDuty(value); }
+  void setDuty(float value) {
+    motor_out_lpf_.reset(0);
+    motor_out_->setDuty(value);
+  }
 
   float get() { return motor_out_lpf_.getVal(); }
 
@@ -63,6 +66,8 @@ class BoardController : public UpdateListener {
   // Main control loop. Runs at 1000hz Must finish in less than 1ms otherwise
   // controller will freeze.
   void processUpdate(const MpuUpdate& update);
+
+  float batteryVoltage() const { return out[0].mc_values_.v_in; }
 
  public:
   float fwd;

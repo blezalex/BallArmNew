@@ -69,8 +69,12 @@ class InitWaiter : public UpdateListener {
 
   void waitForAccGyroCalibration() {
     uint16_t last_check_time = 0;
+    const uint32_t start_time = millis();
     while (!accGyro.calibrationComplete() || angle_guard_->CanStart()) {
       IWDG_ReloadCounter();
+      if ((uint32_t)(millis() - start_time) >= 20000u) {
+        break;
+      }
       if ((uint16_t)(millis() - last_check_time) > 200u) {
         last_check_time = millis();
         status_led_->toggle();
@@ -358,6 +362,7 @@ int main(void) {
 
       case RequestId_GET_STATS: {
         Stats stats = Stats_init_default;
+        stats.batt_voltage = main_ctrl.batteryVoltage();
         stats.pitch_angle = imu.angles[ANGLE_DRIVE];
         stats.roll_angle = imu.angles[ANGLE_STEER];
 
