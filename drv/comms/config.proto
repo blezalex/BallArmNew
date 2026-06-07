@@ -93,7 +93,7 @@ message Stats {
   required float batt_current = 2;
   required float motor_current = 3;
   required float speed = 5;
-  required float drive_angle = 7;
-  required float stear_angle = 8;
+  required float pitch_angle = 7;
+  required float roll_angle = 8;
   required int32 can_errors = 9;
 }

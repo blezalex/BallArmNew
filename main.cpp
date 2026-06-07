@@ -358,8 +358,8 @@ int main(void) {
 
       case RequestId_GET_STATS: {
         Stats stats = Stats_init_default;
-        stats.drive_angle = imu.angles[ANGLE_DRIVE];
-        stats.stear_angle = imu.angles[ANGLE_STEER];
+        stats.pitch_angle = imu.angles[ANGLE_DRIVE];
+        stats.roll_angle = imu.angles[ANGLE_STEER];
 
 
         stats.can_errors = CAN_GetReceiveErrorCounter(CAN1) +

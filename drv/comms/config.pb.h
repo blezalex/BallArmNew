@@ -92,8 +92,8 @@ typedef struct _Stats {
     float batt_current;
     float motor_current;
     float speed;
-    float drive_angle;
-    float stear_angle;
+    float pitch_angle;
+    float roll_angle;
     int32_t can_errors;
 } Stats;
 
@@ -161,8 +161,8 @@ extern "C" {
 #define Stats_batt_current_tag                   2
 #define Stats_motor_current_tag                  3
 #define Stats_speed_tag                          5
-#define Stats_drive_angle_tag                    7
-#define Stats_stear_angle_tag                    8
+#define Stats_pitch_angle_tag                    7
+#define Stats_roll_angle_tag                     8
 #define Stats_can_errors_tag                     9
 
 /* Struct field encoding specification for nanopb */
@@ -242,8 +242,8 @@ X(a, STATIC,   REQUIRED, FLOAT,    batt_voltage,      1) \
 X(a, STATIC,   REQUIRED, FLOAT,    batt_current,      2) \
 X(a, STATIC,   REQUIRED, FLOAT,    motor_current,     3) \
 X(a, STATIC,   REQUIRED, FLOAT,    speed,             5) \
-X(a, STATIC,   REQUIRED, FLOAT,    drive_angle,       7) \
-X(a, STATIC,   REQUIRED, FLOAT,    stear_angle,       8) \
+X(a, STATIC,   REQUIRED, FLOAT,    pitch_angle,       7) \
+X(a, STATIC,   REQUIRED, FLOAT,    roll_angle,        8) \
 X(a, STATIC,   REQUIRED, INT32,    can_errors,        9)
 #define Stats_CALLBACK NULL
 #define Stats_DEFAULT NULL
